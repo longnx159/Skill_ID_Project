@@ -1,0 +1,14 @@
+# Full dependencies — includes optional Bayesian stack
+-r requirements.txt
+matplotlib>=3.9
+tqdm>=4.66
+
+# Statistical modeling (optional — pipeline degrades gracefully without these)
+scipy>=1.12
+statsmodels>=0.14
+linearmodels>=6.0
+
+# Bayesian hierarchical model (optional — Model C is skipped if unavailable)
+bambi>=0.15
+pymc>=5.15
+arviz>=0.18

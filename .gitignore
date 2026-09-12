@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+output_v053/
+output_*/
+outputs/*
+!outputs/README.md
+tests/_artifacts/
+tests/tmp*/
+node_modules/
+review_artifacts/
