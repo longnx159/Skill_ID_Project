@@ -47,15 +47,20 @@ def write_result_workbook(path, tables):
                 safe.append(value)
             sheet.append(safe)
         style_table(sheet,sheet.max_row,sheet.max_column,index)
-        for row in sheet.iter_rows(min_row=2):
-            line_count=1
-            for cell in row:
-                cell.font=Font(name="Arial",size=11)
-                cell.alignment=Alignment(wrap_text=True,vertical="center")
-                width=sheet.column_dimensions[cell.column_letter].width
-                line_count=max(line_count,ceil(len(str(cell.value or ""))/max(width-2,1)))
-                if isinstance(cell.value,float):
-                    cell.number_format="0.000"
-            sheet.row_dimensions[row[0].row].height=max(18,min(line_count*16,96))
+        sheet.sheet_format.defaultRowHeight = 20.0
+        cell_font = Font(name="Arial", size=11)
+        cell_align = Alignment(wrap_text=True, vertical="center")
+        if sheet.max_row <= 2000:
+            for row in sheet.iter_rows(min_row=2):
+                for cell in row:
+                    cell.font = cell_font
+                    cell.alignment = cell_align
+                    if isinstance(cell.value, float):
+                        cell.number_format = "0.000"
+        else:
+            float_cols = [i + 1 for i, dtype in enumerate(frame.dtypes) if pd.api.types.is_float_dtype(dtype)]
+            for col_idx in float_cols:
+                for r in range(2, sheet.max_row + 1):
+                    sheet.cell(row=r, column=col_idx).number_format = "0.000"
     Path(path).parent.mkdir(parents=True,exist_ok=True)
     workbook.save(path)

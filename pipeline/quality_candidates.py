@@ -14,8 +14,9 @@ from .quality_model import attach_asof_skill, fit_quality_candidate, predict_qua
 
 def run_candidates(input_dir, output, draws=1000,tune=1000,chains=4,seed=42):
     inputs=load_inputs(Config(input_dir=Path(input_dir)))
-    raw=inputs.get("Item Mapping",pd.DataFrame())
-    if raw.empty: raw=inputs["Production"]
+    raw=inputs.get("Item Master",pd.DataFrame())
+    if raw.empty: raw=inputs.get("Item Mapping",pd.DataFrame())
+    if raw.empty: raw=inputs.get("Production",pd.DataFrame())
     mapping=item_mapping(raw)
     planner=clean_planner_data(inputs["Planner Skills"])
     qc=inputs["QC Tickets"]

@@ -46,9 +46,14 @@ def attach_mapping(frame, mapping):
     out = out.merge(mapping, on="Item Number", how="left", validate="many_to_one")
     if supplied_process is not None:
         old = supplied_process.reset_index(drop=True).astype("string").str.strip()
-        mismatch = old.notna() & out.Process.notna() & old.ne(out.Process)
+        mismatch = old.notna() & old.ne("Unknown") & out.Process.notna() & old.ne(out.Process)
         if mismatch.any():
             raise ValueError("Input Process conflicts with exact Item mapping")
+        out["Process"] = out["Process"].fillna(old)
+    if GROUP in out.columns:
+        out[GROUP] = out[GROUP].fillna(out["Item Number"])
+    else:
+        out[GROUP] = out["Item Number"]
     return out
 
 

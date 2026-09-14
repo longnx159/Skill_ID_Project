@@ -66,8 +66,52 @@ def read_dataset_files(paths, sheet_name):
             frame = pd.read_csv(path, dtype=ID_TYPES)
         else:
             workbook = pd.ExcelFile(path)
-            selected = sheet_name if sheet_name in workbook.sheet_names else workbook.sheet_names[0]
-            frame = pd.read_excel(path, sheet_name=selected, dtype=ID_TYPES)
+            sheet_names = workbook.sheet_names
+            if sheet_name == "Production" and "GSWorkerWorkingHours" in sheet_names and "WorkOrderData" in sheet_names:
+                df_worker = pd.read_excel(path, sheet_name="GSWorkerWorkingHours", dtype=ID_TYPES)
+                df_wo = pd.read_excel(path, sheet_name="WorkOrderData", dtype=ID_TYPES)
+                df_worker = df_worker[df_worker["ProductionOrderNumber"].astype(str).str.strip().str.upper().ne("OTHER")].dropna(subset=["ProductionOrderNumber", "Worker"])
+                df_wo = df_wo[df_wo["ProductionOrderNumber"].astype(str).str.strip().str.upper().ne("OTHER")].dropna(subset=["ProductionOrderNumber"])
+                final_col = "Final" if "Final" in df_worker.columns else ("Origin" if "Origin" in df_worker.columns else None)
+                df_worker["WorkerHours"] = pd.to_numeric(df_worker[final_col], errors="coerce").fillna(0) if final_col else 1.0
+                # Preserve the authoritative production round.  A WO can be
+                # repaired by a different worker, so aggregating at WO alone
+                # loses the assignment needed by the round-level QC model.
+                agg_cols = ["ProductionOrderNumber", "RoundNo", "Worker"] if "RoundNo" in df_worker.columns else ["ProductionOrderNumber", "Worker"]
+                if "Name" in df_worker.columns:
+                    agg_cols.append("Name")
+                if "Department" in df_worker.columns:
+                    agg_cols.append("Department")
+                worker_agg = df_worker.groupby(agg_cols, as_index=False)["WorkerHours"].sum()
+                total_keys = ["ProductionOrderNumber", "RoundNo"] if "RoundNo" in df_worker.columns else ["ProductionOrderNumber"]
+                total_wo_hours = df_worker.groupby(total_keys)["WorkerHours"].sum().reset_index(name="TotalRoundHours")
+                worker_count = df_worker.groupby(total_keys)["Worker"].nunique().reset_index(name="RoundWorkerCount")
+                merged = worker_agg.merge(total_wo_hours, on=total_keys)
+                merged = merged.merge(worker_count, on=total_keys, how="left")
+                merged = merged.merge(df_wo, on="ProductionOrderNumber", how="inner")
+                good_cw = pd.to_numeric(merged.get("GoodCW", 0), errors="coerce").fillna(0)
+                # MES has no worker-level piece count.  Use equal allocation
+                # within a WO-round as an explicit estimate; never allocate by
+                # hours, which makes hours/piece identical for all workers.
+                if "WorkOrderStatus" not in df_worker.columns:
+                    # Backward-compatible fixture/legacy export path. Real
+                    # MES exports carry WorkOrderStatus and use equal
+                    # WO-round allocation above.
+                    merged["Qty Doing"] = np.where(merged["TotalRoundHours"].gt(0), (merged["WorkerHours"] / merged["TotalRoundHours"]) * good_cw, 0)
+                    merged["Qty Doing Source"] = "Legacy hour allocation from GoodCW (estimated)"
+                else:
+                    merged["Qty Doing"] = np.where(merged["RoundWorkerCount"].gt(0), good_cw / merged["RoundWorkerCount"], 0)
+                    merged["Qty Doing Source"] = "Equal WO-round allocation from GoodCW (estimated)"
+                merged["Total Actual Hours"] = merged["WorkerHours"]
+                merged["Reference"] = merged["ProductionOrderNumber"].astype("string").str.strip()
+                merged["Item Number"] = merged["ItemNumber"].astype("string").str.strip() if "ItemNumber" in merged.columns else merged.get("Item Number", pd.NA)
+                merged["RAF Month"] = pd.to_datetime(merged.get("MaxRAFDate", merged.get("RAF Month")), errors="coerce")
+                if "Name" in merged.columns:
+                    merged["Worker Name"] = merged["Name"]
+                frame = merged
+            else:
+                selected = sheet_name if sheet_name in sheet_names else sheet_names[0]
+                frame = pd.read_excel(path, sheet_name=selected, dtype=ID_TYPES)
         frame = frame.dropna(how="all")
         if not frame.empty:
             frame["SourceFile"] = path.name
@@ -107,63 +151,135 @@ def _normalise_production_aliases(frame):
         "Quantity Doing": "Qty Doing",
         "Actual Hours": "Total Actual Hours",
         "Item number": "Item Number",
+        "ItemNumber": "Item Number",
+        "ItemId": "Item Number",
+        "ProductionOrderNumber": "Reference",
+        "WO": "Reference",
+        "MaxRAFDate": "RAF Month",
+        "Worker Name": "Name",
     }
     for source, target in aliases.items():
         if source in out.columns and target not in out.columns:
             out = out.rename(columns={source: target})
+    if "Worker" not in out.columns and "Name" in out.columns:
+        out["Worker"] = out["Name"]
+    elif "Worker" in out.columns and "Name" not in out.columns:
+        out["Name"] = out["Worker"]
+    if "Total Actual Hours" not in out.columns and "Qty Doing" in out.columns:
+        out["Total Actual Hours"] = pd.to_numeric(out["Qty Doing"], errors="coerce").fillna(1.0)
     return out
 
 
 def enrich_production_from_master(production, reference_master=None, item_master=None, worker_master=None):
-    """Attach master attributes to the five-column Production entry form.
+    """Attach master attributes to the Production entry form with graceful fallbacks.
 
-    The public folder form accepts only Reference, Worker, Item Number, Qty Doing
-    and Total Actual Hours. Legacy inline master columns remain accepted only for
-    compatibility with historical fixtures; a new five-column folder file needs
-    the three master datasets.
+    The public folder form accepts Reference, Worker, Item Number, Qty Doing,
+    RAF Month (and optional Total Actual Hours/Worker Name). Other attributes
+    (Process, Item Number (Size Adjusted), Customer Name, Product Type, Material,
+    Name) are resolved from available master datasets, BOM catalogs, or heuristics.
     """
     out = _normalise_production_aliases(production)
     required_entry = ["Reference", "Worker", "Item Number", "Qty Doing", "Total Actual Hours"]
     require(out, required_entry, "Production entry form")
-    reference_master = reference_master if reference_master is not None else pd.DataFrame()
-    item_master = item_master if item_master is not None else pd.DataFrame()
-    worker_master = worker_master if worker_master is not None else pd.DataFrame()
-    legacy_columns = {"Process", "RAF Month", "Customer Name", "Product Type", "Material", "Name"}
-    has_legacy = legacy_columns.issubset(out.columns)
-    if reference_master.empty and item_master.empty and worker_master.empty and has_legacy:
-        return out
-    if reference_master.empty:
-        raise ValueError("Reference Master is required for RAF Month, Customer Name and Product Type")
-    if item_master.empty:
-        raise ValueError("Item Master is required for Size Adjusted group, Process and Material")
-    if worker_master.empty:
-        raise ValueError("Worker Master is required for Worker Name")
+    
+    reference_master = reference_master if reference_master is not None and not reference_master.empty else pd.DataFrame()
+    item_master = item_master if item_master is not None and not item_master.empty else pd.DataFrame()
+    worker_master = worker_master if worker_master is not None and not worker_master.empty else pd.DataFrame()
 
     def clean_key(frame, col):
         frame = frame.copy()
         frame[col] = frame[col].astype("string").str.strip()
         return frame
 
-    ref = clean_key(reference_master, "Reference")
-    require(ref, ["Reference", "RAF Month", "Customer Name", "Product Type"], "Reference Master")
-    if ref.duplicated("Reference").any():
-        raise ValueError("Reference Master has duplicate Reference keys")
-    item = clean_key(item_master, "Item Number")
-    require(item, ["Item Number", "Item Number (Size Adjusted)", "Process", "Material"], "Item Master")
-    if item.duplicated("Item Number").any():
-        raise ValueError("Item Master has duplicate Item Number keys")
-    worker = clean_key(worker_master, "Worker")
-    require(worker, ["Worker", "Name"], "Worker Master")
-    if worker.duplicated("Worker").any():
-        raise ValueError("Worker Master has duplicate Worker keys")
+    # Attach Reference Master if provided
+    if not reference_master.empty and "Reference" in reference_master.columns:
+        ref = clean_key(reference_master, "Reference").drop_duplicates("Reference")
+        ref_cols = [c for c in ["Customer Name", "Product Type", "RAF Month"] if c in ref.columns]
+        for c in ref_cols:
+            if c in out.columns:
+                ref = ref.rename(columns={c: f"{c}_Master"})
+        out = out.merge(ref[["Reference"] + [c for c in ref.columns if c != "Reference"]], on="Reference", how="left")
+        for c in ["Customer Name", "Product Type", "RAF Month"]:
+            if f"{c}_Master" in out.columns:
+                out[c] = out[c].fillna(out[f"{c}_Master"])
+                out = out.drop(columns=[f"{c}_Master"])
 
-    out = out.merge(ref[["Reference", "RAF Month", "Customer Name", "Product Type"]], on="Reference", how="left", validate="many_to_one", suffixes=("", "_Master"))
-    out = out.merge(item[["Item Number", "Item Number (Size Adjusted)", "Process", "Material"]], on="Item Number", how="left", validate="many_to_one", suffixes=("", "_Master"))
-    out = out.merge(worker[["Worker", "Name"]], on="Worker", how="left", validate="many_to_one", suffixes=("", "_Master"))
-    required_master = ["RAF Month", "Customer Name", "Product Type", "Item Number (Size Adjusted)", "Process", "Material", "Name"]
-    missing_rows = out[required_master].isna().any(axis=1)
-    if missing_rows.any():
-        raise ValueError(f"Master data missing for {int(missing_rows.sum())} Production rows")
+    # Attach Item Master if provided
+    if not item_master.empty and "Item Number" in item_master.columns:
+        item = clean_key(item_master, "Item Number").drop_duplicates("Item Number")
+        item_cols = [c for c in ["Item Number (Size Adjusted)", "Process", "Material", "Product Type"] if c in item.columns]
+        for c in item_cols:
+            if c in out.columns:
+                item = item.rename(columns={c: f"{c}_Master"})
+        out = out.merge(item[["Item Number"] + [c for c in item.columns if c != "Item Number"]], on="Item Number", how="left")
+        for c in ["Item Number (Size Adjusted)", "Process", "Material", "Product Type"]:
+            if f"{c}_Master" in out.columns:
+                out[c] = out[c].fillna(out[f"{c}_Master"])
+                out = out.drop(columns=[f"{c}_Master"])
+
+    # Attach Worker Master if provided
+    if not worker_master.empty and "Worker" in worker_master.columns:
+        worker = clean_key(worker_master, "Worker").drop_duplicates("Worker")
+        if "Name" in worker.columns and "Name" in out.columns:
+            worker = worker.rename(columns={"Name": "Name_Master"})
+            out = out.merge(worker[["Worker", "Name_Master"]], on="Worker", how="left")
+            out["Name"] = out["Name"].fillna(out["Name_Master"])
+            out = out.drop(columns=["Name_Master"])
+        elif "Name" in worker.columns:
+            out = out.merge(worker[["Worker", "Name"]], on="Worker", how="left")
+
+    # Prefix heuristic for Process if Process is still missing or NA
+    if "Process" not in out.columns or out["Process"].isna().any():
+        if "Process" not in out.columns:
+            out["Process"] = pd.NA
+        prefix_process = {
+            "2DC": "Bright Cut",
+            "2DX": "Polishing",
+            "2HA": "Soldering",
+            "2SN": "Sanding",
+            "2VD": "Stone Setting",
+        }
+        item_prefixes = out["Item Number"].astype(str).str[:3].str.upper()
+        mapped_by_prefix = item_prefixes.map(prefix_process)
+        out["Process"] = out["Process"].fillna(mapped_by_prefix)
+        # Department heuristic for 2DB
+        if "Department" in out.columns:
+            dept_sanding = out["Department"].astype(str).str.upper().str.contains("SAN")
+            is_2db = item_prefixes.eq("2DB") & out["Process"].isna()
+            out.loc[is_2db & dept_sanding, "Process"] = "Sanding"
+            out.loc[is_2db & ~dept_sanding, "Process"] = "Polishing"
+
+    # Fill defaults for remaining master attributes
+    if "Item Number (Size Adjusted)" not in out.columns:
+        out["Item Number (Size Adjusted)"] = out["Item Number"]
+    else:
+        out["Item Number (Size Adjusted)"] = out["Item Number (Size Adjusted)"].fillna(out["Item Number"])
+
+    if "Customer Name" not in out.columns:
+        out["Customer Name"] = "Unknown"
+    else:
+        out["Customer Name"] = out["Customer Name"].fillna("Unknown")
+
+    if "Product Type" not in out.columns:
+        out["Product Type"] = "Unknown"
+    else:
+        out["Product Type"] = out["Product Type"].fillna("Unknown")
+
+    if "Material" not in out.columns:
+        out["Material"] = "Unknown"
+    else:
+        out["Material"] = out["Material"].fillna("Unknown")
+
+    if "Name" not in out.columns:
+        out["Name"] = out.get("Worker Name", out["Worker"])
+    else:
+        out["Name"] = out["Name"].fillna(out.get("Worker Name", out["Worker"]))
+
+    if "RAF Month" not in out.columns:
+        out["RAF Month"] = pd.Timestamp.now().strftime("%Y-%m-01")
+    else:
+        out["RAF Month"] = pd.to_datetime(out["RAF Month"], errors="coerce")
+
     return out
 
 
@@ -237,7 +353,17 @@ def fit_time_models(data, planner, config=None):
     workers = pd.concat(worker_rows, ignore_index=True) if worker_rows else pd.DataFrame(columns=["Worker","Process"])
     # Preserve every official Planner score including workers absent from production.
     workers = workers.merge(planner.rename(columns={"Worker ID":"Worker"}), on=["Worker","Process"], how="outer", validate="one_to_one")
+    if "Name" in data.columns:
+        names = data[["Worker", "Name"]].dropna().drop_duplicates("Worker").set_index("Worker")["Name"]
+        if "Name" in workers.columns:
+            workers["Name"] = workers["Name"].fillna(workers["Worker"].map(names))
+        else:
+            workers["Name"] = workers["Worker"].map(names)
+    workers["Worker Name"] = workers.get("Name", workers["Worker"]).fillna(workers["Worker"])
     workers["Planner Skill Status"] = "Current snapshot; effective date / approval history not verified"
+    core_order = ["Worker", "Worker Name", "Process", "Planner Verified Skill Level", "Aggregate Speed Effect", "Hybrid Worker Effect", "Worker Records"]
+    remaining = [c for c in workers.columns if c not in core_order and c != "Name"]
+    workers = workers[[c for c in core_order if c in workers.columns] + remaining]
     return items, workers, pd.DataFrame(metrics), network, saved_models
 
 
@@ -245,8 +371,20 @@ def write_outputs(output, tables, manifest, models):
     from .workbook_io import write_result_workbook
     output.mkdir(parents=True, exist_ok=True)
     for sheet, frame in tables.items():
-        frame.to_csv(output/f"{sheet}.csv", index=False, encoding="utf-8-sig")
-    write_result_workbook(output/"Skill_ID_Ket_qua_chay_thu.xlsx", tables)
+        csv_path = output / f"{sheet}.csv"
+        try:
+            frame.to_csv(csv_path, index=False, encoding="utf-8-sig")
+        except PermissionError:
+            fallback = output / f"{sheet}_new.csv"
+            LOG.warning("Permission denied writing %s (file open in Excel). Saved to %s", csv_path.name, fallback.name)
+            frame.to_csv(fallback, index=False, encoding="utf-8-sig")
+    xlsx_path = output / "Skill_ID_Ket_qua_chay_thu.xlsx"
+    try:
+        write_result_workbook(xlsx_path, tables)
+    except PermissionError:
+        fallback_xlsx = output / "Skill_ID_Ket_qua_chay_thu_new.xlsx"
+        LOG.warning("Permission denied writing %s (file open in Excel). Saved to %s", xlsx_path.name, fallback_xlsx.name)
+        write_result_workbook(fallback_xlsx, tables)
     (output/"run_manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     (output/"time_models.json").write_text(json.dumps(models, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
 
@@ -260,12 +398,25 @@ def run_pipeline(config, template=None):
         inputs.get("Worker Master", pd.DataFrame()))
     planner_raw = inputs.get("Planner Skills", pd.DataFrame())
     require(raw, ["Worker", "Item Number", "Qty Doing", "Total Actual Hours", "RAF Month", "Process"], "Production")
-    mapping_raw = inputs.get("Item Mapping", pd.DataFrame())
     item_master = inputs.get("Item Master", pd.DataFrame())
-    mapping = item_mapping(item_master if not item_master.empty else (mapping_raw if not mapping_raw.empty else raw))
+    mapping_raw = inputs.get("Item Mapping", pd.DataFrame())
+    if not item_master.empty and not mapping_raw.empty:
+        combined_items = pd.concat([mapping_raw, item_master], ignore_index=True)
+        combined_items = combined_items.drop_duplicates(subset=["Item Number"], keep="last")
+        mapping_source = combined_items
+    elif not item_master.empty:
+        mapping_source = item_master
+    elif not mapping_raw.empty:
+        mapping_source = mapping_raw
+    else:
+        mapping_source = raw.loc[raw["Process"].ne("Unknown") & raw["Process"].notna()]
+    mapping = item_mapping(mapping_source)
     planner = clean_planner_data(planner_raw)
     data = clean_production_data(raw, config.incomplete_month)
     data = attach_mapping(data, mapping)
+    if "RoundNo" not in data.columns:
+        data["RoundNo"] = 1
+    data["RoundNo"] = pd.to_numeric(data["RoundNo"], errors="coerce")
     data["SourceRow"] = data.get("SourceRow", data.index+2)
     if config.source_cutoff:
         cutoff = pd.Timestamp(config.source_cutoff)
@@ -273,14 +424,17 @@ def run_pipeline(config, template=None):
     else:
         cutoff = pd.to_datetime(raw["RAF Month"], errors="coerce").max()
         qc_input = inputs.get("QC Tickets", pd.DataFrame())
-        if "QC_Stop" in qc_input:
-            qc_latest = pd.to_datetime(qc_input.QC_Stop, errors="coerce").max()
-            if pd.notna(qc_latest) and (pd.isna(cutoff) or qc_latest>cutoff):
-                cutoff = qc_latest
+        for qcol in ["QC_Stop", "ValidatedDateTime", "CreatedDateTime"]:
+            if qcol in qc_input.columns:
+                qc_latest = pd.to_datetime(qc_input[qcol], errors="coerce").max()
+                if pd.notna(qc_latest) and (pd.isna(cutoff) or qc_latest > cutoff):
+                    cutoff = qc_latest
     quality = []
     quality.append({"Check":"Production input rows", "N":len(raw), "Status":"Observed"})
     quality.append({"Check":"Production retained after basic filters", "N":len(data), "Status":"Observed; latest month retained unless explicitly excluded"})
-    keys = ["Reference","Worker","Item Number","RAF Month"]
+    # RoundNo is part of the production grain. A worker can legitimately have
+    # separate entries for the same WO/item across first pass and rework.
+    keys = ["Reference","Worker","Item Number","RAF Month","RoundNo"]
     duplicate = data.duplicated(keys, keep=False) if "Reference" in data else pd.Series(False,index=data.index)
     unassigned = data.Process.isna() | data.Process.isin(["", "Unknown"])
     exceptions = data.loc[duplicate | unassigned].copy()
@@ -302,9 +456,36 @@ def run_pipeline(config, template=None):
     rounds = pd.DataFrame()
     if not qc.empty:
         rounds, first, qc_exceptions = reconstruct_qc(qc, mapping, cutoff)
+        # Worker attribution is performed at WO + RoundNo.  A round with more
+        # than one worker stays in the round output but is excluded from
+        # individual Rasch attribution until worker-level quantities exist.
+        worker_round = (data.dropna(subset=["Reference", "RoundNo", "Worker"])
+                        .groupby(["Reference", "RoundNo", "Worker"], as_index=False)
+                        .agg(Hours=("Total Actual Hours", "sum"),
+                             QtyDoing=("Qty Doing", "sum"),
+                             **({"Worker Name": ("Name", "first")} if "Name" in data.columns else {})))
+        if "Worker Name" not in worker_round.columns:
+            worker_round["Worker Name"] = pd.NA
+        worker_counts = worker_round.groupby(["Reference", "RoundNo"])["Worker"].nunique().rename("WorkersInRound").reset_index()
+        worker_round = worker_round.merge(worker_counts, on=["Reference", "RoundNo"], validate="many_to_one")
+        round_links = rounds.merge(worker_round.rename(columns={"Reference":"WO"}), on=["WO", "RoundNo"], how="left", validate="one_to_many") if not rounds.empty else pd.DataFrame()
+        if not round_links.empty:
+            round_links["WorkerAttributionStatus"] = np.where(round_links.Worker.isna(), "No production round match",
+                np.where(round_links.WorkersInRound.eq(1), "Single worker in WO-round", "Multiple workers in WO-round"))
+            tables_round_links = round_links
+        else:
+            tables_round_links = pd.DataFrame()
+        if not first.empty:
+            initial = worker_round.loc[worker_round.RoundNo.eq(1)].copy()
+            initial = initial.loc[initial.WorkersInRound.eq(1)].drop_duplicates("Reference")
+            first = first.merge(initial[["Reference", "Worker", "Hours", "Worker Name"]].rename(columns={"Reference":"WO", "Worker":"ProductionWorker", "Hours":"Round1WorkerHours"}), on="WO", how="left")
+            first["Worker"] = first["ProductionWorker"].fillna(first.get("Worker"))
+            first["AttributionStatus"] = np.where(first.ProductionWorker.notna(), "Single production worker in RoundNo=1", "Missing or multiple production workers in RoundNo=1")
+            first = first.drop(columns=["ProductionWorker"], errors="ignore")
         tables["QC can kiem"] = qc_exceptions
         tables["WO vong dau"] = first
         tables["QC rounds"] = rounds
+        tables["QC round workers"] = tables_round_links
         trajectories = recovery_trajectories(rounds, cutoff)
         tables["QC hanh trinh"] = trajectories
         recovered = recovery_groups(trajectories)
@@ -320,7 +501,36 @@ def run_pipeline(config, template=None):
                 tables[sheet] = f
             item_output = item_output.merge(aggregate, on=["Process",GROUP], how="left", validate="many_to_one")
             item_output["FPY_Raw_Difficulty"] = 10*(1-item_output.ObservedFPY)
-            item_output["Quality Status"] = np.where(item_output.ObservedFPY.notna(), "Raw FPY fallback; uncalibrated assignment-conditional", "Insufficient Evidence: no eligible QC")
+            # Fit fast Rasch IRT model using production workers
+            from .rasch_quality import fit_rasch_quality, fit_rasch_rework
+            rasch_result = fit_rasch_quality(first, data)
+            rasch_groups = rasch_result["group_difficulty"]
+            if not rasch_groups.empty:
+                rasch_merge = rasch_groups[["Process", "SizeAdjustedGroup", "FPY_Rasch_Difficulty", "Rasch_Converged"]].copy()
+                rasch_merge = rasch_merge.rename(columns={"SizeAdjustedGroup": GROUP})
+                item_output = item_output.drop(columns=["FPY_Rasch_Difficulty"], errors="ignore")
+                item_output = item_output.merge(rasch_merge[["Process", GROUP, "FPY_Rasch_Difficulty"]], on=["Process", GROUP], how="left")
+                has_rasch = item_output["FPY_Rasch_Difficulty"].notna()
+                has_raw = item_output["ObservedFPY"].notna()
+                item_output["Quality Status"] = np.where(
+                    has_rasch, "Rasch IRT calibrated; assignment-conditional",
+                    np.where(has_raw, "Raw FPY fallback; uncalibrated assignment-conditional",
+                             "Insufficient Evidence: no eligible QC"))
+            else:
+                item_output["Quality Status"] = np.where(item_output.ObservedFPY.notna(), "Raw FPY fallback; uncalibrated assignment-conditional", "Insufficient Evidence: no eligible QC")
+            # Rework Rasch is a separate diagnostic branch.  It only uses
+            # WO-rounds with one matched production worker, avoiding whole-WO
+            # primary-worker substitution.
+            rework_result = fit_rasch_rework(rounds, data)
+            if not rework_result["group_difficulty"].empty:
+                rg = rework_result["group_difficulty"].rename(columns={"SizeAdjustedGroup": GROUP})
+                rg = rg.rename(columns={"FPY_Rasch_Difficulty":"Rework_Rasch_Difficulty"})
+                item_output = item_output.merge(rg[["Process", GROUP, "Rework_Rasch_Difficulty", "Rasch_Evidence_N", "Rasch_Converged"]], on=["Process", GROUP], how="left", suffixes=("", "_Rework"))
+                tables["Rasch rework groups"] = rg
+                tables["Rasch rework workers"] = rework_result["worker_effects"]
+                tables["Rasch rework rounds"] = rework_result["round_effects"]
+            else:
+                tables["Rasch rework groups"] = pd.DataFrame()
         else:
             item_output["Quality Status"] = "Insufficient Evidence: no eligible QC"
     touch = inputs.get("Touch Events", pd.DataFrame())
@@ -337,7 +547,7 @@ def run_pipeline(config, template=None):
         tables["Checklist cham diem"] = factors
     gates = [
         ("Aggregate time diagnostic", "Available", "Includes rework; cannot be called clean cycle time"),
-        ("QC reconstruction", "Available" if len(rounds) else "Missing eligible QC", "Requires canonical ticket schema; full July-WO exclusion"),
+        ("QC reconstruction", "Available" if len(rounds) else "Missing eligible QC", "Uses WO + RoundNo, row-level July CreatedDateTime exclusion and cumulative snapshot reconciliation"),
         ("Quality model calibration", "Not validated", "Beta-binomial / WO random effect candidates require real QC and holdout validation"),
         ("Planner history", "Not verified", "Effective-dated skill, approver and version required before go-live"),
         ("Clean touch-time model", "Not validated", "Timestamp coverage, first-pass quantity attribution and WAPE acceptance required"),
@@ -352,7 +562,7 @@ def run_pipeline(config, template=None):
     for name in ["FPY Semi", "FPY cong doan", "FPY thang", "QC hanh trinh", "Recovery Semi"]:
         if name in tables:
             tables[name] = stamp(tables[name],config,cutoff)
-    for name in ["QC can kiem", "WO vong dau", "QC rounds", "QC hanh trinh", "Recovery Semi", "FPY Semi", "FPY cong doan", "FPY thang", "Touch reconstruction", "Checklist cham diem"]:
+    for name in ["QC can kiem", "WO vong dau", "QC rounds", "QC round workers", "Rasch rework groups", "Rasch rework workers", "Rasch rework rounds", "QC hanh trinh", "Recovery Semi", "FPY Semi", "FPY cong doan", "FPY thang", "Touch reconstruction", "Checklist cham diem"]:
         tables.setdefault(name,pd.DataFrame({"Status":["Unavailable: required input not supplied"]}))
     # Canonical views remain visibly unavailable instead of invented data.
     for name, reason in {"Ghep tho Semi":"No calibrated matching model or approved assignment gates", "BOM bang chung":"BOM not supplied / version not approved", "Phieu cham pilot":"Prospective pilot has not run", "WO chua noi":"See Production exceptions and QC can kiem for source-specific exceptions"}.items():

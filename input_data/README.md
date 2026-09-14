@@ -8,11 +8,11 @@ Mỗi thư mục có một file `_template.xlsx` để mở và điền trực t
 | --- | --- | --- |
 | `01_Production` | Production / dữ liệu sản xuất | Bắt buộc cho lần chạy tối thiểu |
 | `02_Planner_Skills` | Planner Skills | Bắt buộc cho lần chạy tối thiểu |
-| `03_Item_Mapping` | Item Mapping đã duyệt | Có thể để trống nếu Production đã có mapping |
+| `09_Item_Master` | Item Master & Mapping (Process, Group, Material, Type) | Tự động suy luận từ mã nếu chưa có |
 | `04_QC_Tickets` | Ticket QC và các vòng kiểm | Không có thì FPY và Recovery để trống |
-| `05_Touch_Events` | Worker Start/Stop | Không có thì chưa tính được touch time sạch |
+| `05_Touch_Events` | Worker Start/Stop | Không bắt buộc; để trống nếu chưa có scan touch time |
 | `06_Engineering_Factors` | Năm yếu tố kỹ thuật | Không có thì Final Technical Complexity để trống |
-| `07_Pilot_Log` | Nhật ký pilot | Không có thì chưa phân tích ITT/PP |
+| `07_Pilot_Log` | Nhật ký pilot | Không bắt buộc; để trống trước khi chạy pilot thực nghiệm |
 
 Ví dụ tên file: `production_2026_08.xlsx`, `planner_snapshot_2026_08.xlsx`, `qc_2026_08.csv`. Có thể thêm file mới vào đúng thư mục mà không cần gộp các file cũ.
 
@@ -32,8 +32,8 @@ Không cần ghép các sheet thành một workbook. Chỉ đặt dữ liệu v�
 
 ## Thứ tự đẩy dữ liệu
 
-1. Đẩy `Production` và `Planner Skills` trước để kiểm tra thời gian và mapping.
-2. Đẩy `Item Mapping` khi Engineering có mapping chính thức.
+1. Đẩy `Production` và `Planner Skills` để chạy chẩn đoán năng lực thợ.
+2. Đẩy `Item Master` để quản lý quy trình (Process), nhóm quy cách (Size Adjusted Group) và thuộc tính sản phẩm.
 3. Đẩy `QC Tickets` khi có dữ liệu QC. Pipeline sẽ loại cả WO nếu WO có ticket QC trong tháng 07/2026 theo quy định hiện tại.
 4. Đẩy `Touch Events` khi MES có Worker Start/Stop và QC boundaries.
 5. Đẩy `Engineering Factors` và `Pilot Log` sau khi có người duyệt.

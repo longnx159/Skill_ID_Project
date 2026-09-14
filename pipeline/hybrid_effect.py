@@ -14,8 +14,8 @@ def fit_hybrid_effect(df: pd.DataFrame,max_iter=500,tol=1e-7):
     y=df.log_time.to_numpy(float)
     if not len(y) or not np.isfinite(y).all():
         raise ValueError("Time model requires finite, nonempty log_time")
-    workers,wi=np.unique(df.Worker.astype(str),return_inverse=True)
-    items,ii=np.unique(df["Item Number"].astype(str),return_inverse=True)
+    workers,wi=np.unique(df.Worker.astype(str).to_numpy(dtype=str),return_inverse=True)
+    items,ii=np.unique(df["Item Number"].astype(str).to_numpy(dtype=str),return_inverse=True)
     quantity=pd.to_numeric(df.get("Qty Doing",pd.Series(1.,index=df.index)),errors="coerce").to_numpy(float)
     if not np.isfinite(quantity).all() or (quantity<=0).any():
         raise ValueError("Time-model reliability quantities must be positive and finite")

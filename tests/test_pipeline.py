@@ -56,15 +56,17 @@ class Rules(unittest.TestCase):
         self.assertEqual(first.Worker.iloc[0],"A")
         self.assertEqual(len(rounds),2)
 
-    def test_july_excludes_full_wo(self):
+    def test_july_excludes_rows_but_keeps_later_wo_rounds(self):
         q=tickets()
         july=q.iloc[[0]].copy()
         july["QualityOrderId"]="july"
         july["QC_Start"]="2026-07-31 10:00"
         july["QC_Stop"]="2026-07-31 10:10"
         rounds,first,errors=reconstruct_qc(pd.concat([q,july]),mapping())
-        self.assertTrue(rounds.empty)
-        self.assertEqual(len(errors),4)
+        self.assertFalse(rounds.empty)
+        self.assertTrue(pd.to_datetime(rounds.QC_Start).ge("2026-08-01").all())
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors.Reason.iloc[0], "July QC excluded")
 
     def test_duplicate_and_reconciliation(self):
         q=tickets()
@@ -181,13 +183,16 @@ class Rules(unittest.TestCase):
             wb=load_workbook(path)
             def populate(sheet, records):
                 headers=[c.value for c in wb[sheet][1]]
+                extra=[k for k in records[0].keys() if k not in headers]
+                for i, k in enumerate(extra, len(headers)+1): wb[sheet].cell(1, i, k)
+                headers += extra
                 for r,record in enumerate(records,2):
                     for c,h in enumerate(headers,1): wb[sheet].cell(r,c,record.get(h))
             populate("Production",[{"Reference":f"WO{i}","Worker":"A" if i%2 else "B","Item Number":"001","Item Number (Size Adjusted)":"G","Process":"Sanding","Qty Doing":10,"Total Actual Hours":1+i*.01,"RAF Month":pd.Timestamp(f"2026-0{1+i%7}-01").to_pydatetime()} for i in range(35)])
             populate("Planner Skills",[{"Worker ID":"A","Process":"Sanding","Planner Verified Skill Level":5},{"Worker ID":"B","Process":"Sanding","Planner Verified Skill Level":6}])
             populate("QC Tickets",tickets().to_dict("records"))
             wb.save(path)
-            result=run_pipeline(Config(output_dir=Path(tmp)/"out"),path)
+            result=run_pipeline(Config(output_dir=Path(tmp)/"out", incomplete_month=""),path)
             self.assertEqual(len(result["data"]),35)
             items=result["tables"]["Do kho SKU"]
             self.assertEqual(items.FPY_Raw_Difficulty.iloc[0],4)
@@ -216,4 +221,64 @@ class Rules(unittest.TestCase):
         self.assertTrue((fixture_dir/"out"/"Skill_ID_Ket_qua_chay_thu.xlsx").exists())
 
 
-if __name__=="__main__": unittest.main()
+    def test_mes_production_and_qc_database_ingestion(self):
+        from pipeline.pipeline_v053 import run_pipeline
+        from pipeline.config import Config
+        fixture_dir = Path(__file__).resolve().parent / "_artifacts" / uuid.uuid4().hex
+        (fixture_dir / "01_Production").mkdir(parents=True)
+        (fixture_dir / "02_Planner_Skills").mkdir(parents=True)
+        (fixture_dir / "04_QC_Tickets").mkdir(parents=True)
+        (fixture_dir / "09_Item_Master").mkdir(parents=True)
+
+        # Multi-sheet MES ProductionData
+        with pd.ExcelWriter(fixture_dir / "01_Production" / "ProductionData.xlsx") as writer:
+            worker_hours = pd.DataFrame([
+                {"Worker": "W1", "Name": "Worker 1", "Department": "SAN 1", "ProductionOrderNumber": "WO100", "RoundNo": 1, "Final": 3.0},
+                {"Worker": "W2", "Name": "Worker 2", "Department": "SAN 1", "ProductionOrderNumber": "WO100", "RoundNo": 1, "Final": 1.0},
+                {"Worker": "W1", "Name": "Worker 1", "Department": "SAN 1", "ProductionOrderNumber": "WO101", "RoundNo": 1, "Final": 2.0},
+            ])
+            wo_data = pd.DataFrame([
+                {"ProductionOrderNumber": "WO100", "Status": "Complete", "MaxRAFDate": "2026-08-01", "ItemNumber": "2SN001", "GoodCW": 20},
+                {"ProductionOrderNumber": "WO101", "Status": "Complete", "MaxRAFDate": "2026-08-01", "ItemNumber": "2SN001", "GoodCW": 10},
+            ])
+            worker_hours.to_excel(writer, sheet_name="GSWorkerWorkingHours", index=False)
+            wo_data.to_excel(writer, sheet_name="WorkOrderData", index=False)
+
+        # Planner Skills
+        planner = pd.DataFrame([
+            {"Worker ID": "W1", "Process": "Sanding", "Planner Verified Skill Level": 6.0},
+            {"Worker ID": "W2", "Process": "Sanding", "Planner Verified Skill Level": 4.0},
+        ])
+        planner.to_excel(fixture_dir / "02_Planner_Skills" / "planner.xlsx", index=False)
+
+        # Item Master
+        item_m = pd.DataFrame([
+            {"Item Number": "2SN001", "Item Number (Size Adjusted)": "2SN001", "Process": "Sanding", "Material": "Silver"},
+        ])
+        item_m.to_excel(fixture_dir / "09_Item_Master" / "item_master.xlsx", index=False)
+
+        # QC Tickets with 42-column style names
+        qc = pd.DataFrame([
+            {"QualityOrderId": "Q1", "WO": "WO100", "ItemId": "2SN001", "RoundNo": 1, "QCStatus": "Pass", "QCQty": 20,
+             "ExpectedInspectionQty": 20, "CreatedDateTime": "2026-08-02 10:00:00", "ValidatedDateTime": "1900-01-01 00:00:00"},
+        ])
+        qc.to_excel(fixture_dir / "04_QC_Tickets" / "qc.xlsx", index=False)
+
+        result = run_pipeline(Config(input_dir=fixture_dir, output_dir=fixture_dir / "out", incomplete_month=""))
+        data = result["data"]
+        self.assertEqual(len(data), 3)
+        # WO100 total hours = 4.0. W1 has 3.0/4.0 * 20 = 15.0 pieces. W2 has 1.0/4.0 * 20 = 5.0 pieces.
+        w1_wo100 = data[(data.Reference == "WO100") & (data.Worker == "W1")].iloc[0]
+        w2_wo100 = data[(data.Reference == "WO100") & (data.Worker == "W2")].iloc[0]
+        self.assertAlmostEqual(w1_wo100["Qty Doing"], 15.0)
+        self.assertAlmostEqual(w2_wo100["Qty Doing"], 5.0)
+        self.assertAlmostEqual(w1_wo100["Total Actual Hours"], 3.0)
+        self.assertAlmostEqual(w2_wo100["Total Actual Hours"], 1.0)
+        # QC was reconstructed
+        fpy = result["tables"]["FPY Semi"]
+        self.assertFalse(fpy.empty)
+        self.assertAlmostEqual(fpy["ObservedFPY"].iloc[0], 1.0)
+
+
+if __name__ == "__main__":
+    unittest.main()

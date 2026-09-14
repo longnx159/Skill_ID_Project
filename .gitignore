@@ -9,3 +9,5 @@ tests/_artifacts/
 tests/tmp*/
 node_modules/
 review_artifacts/
+~$*
+

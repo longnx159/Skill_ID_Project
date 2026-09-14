@@ -1,3 +1,3 @@
 # QC Tickets
 
-Đặt ticket QC vào đây. Bắt buộc: `QualityOrderId`, `WO`, `Item Number`, `RoundNo`, `QCStatus`, `QCQty`, `ExpectedQty`, `QC_Start`, `QC_Stop`. Giữ `InitialWorker` nếu đã xác định rõ người làm ban đầu.
+Đặt ticket QC vào đây. Với dữ liệu ticket chuẩn, bắt buộc: `QualityOrderId`, `WO`, `Item Number`, `RoundNo`, `QCStatus`, `QCQty`, `ExpectedQty`, `QC_Start`, `QC_Stop`. Với MES `QC data.xlsx`, giữ `ItemId`, `RoundNo`, `QCStatus`, `JDescription`, `RoundPassQty`, `RoundReworkFailQty`, `RoundScrapQty`, `RoundActualQty`, `ExpectedInspectionQty`, `CreatedDateTime`. `JDescription`: Đạt → Pass, Sửa → Rework, Hỏng → Scrap; ô trống mới fallback QCStatus. Tháng 7 bị loại theo CreatedDateTime, các vòng tháng 8 trở đi của cùng WO vẫn giữ. Giữ `InitialWorker` nếu đã xác định rõ người làm ban đầu.

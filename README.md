@@ -40,9 +40,9 @@ The older workbook is preserved under `archive/source_files/` as a reference onl
 
 Keep identifiers as text, including leading zeroes. Use real Excel dates/times in **Asia/Saigon**. Do not put `0` or `N/A` into missing numeric fields. Save and close each workbook before running.
 
-`Qty Doing` is retained for compatibility with the historical source: it means **final OK quantity allocated to the worker**, including fractional quantities. `Total Actual Hours` means recorded worker hours, including historical rework. The derived measure is `60 × Total Actual Hours / Qty Doing`, in **minutes per final OK**. It is not clean first-pass cycle time.
+`Qty Doing` means the final OK quantity attributed to that worker and round. `Total Actual Hours` means recorded worker hours for that same worker and round. MES exports without worker-level piece counts use an explicit equal WO-round estimate from `GoodCW`; the output labels this estimate and it is not a measured individual quantity. The derived measure is `60 × Total Actual Hours / Qty Doing`, in **minutes per final OK**. It is not clean first-pass cycle time.
 
-QC quantities must be whole pieces. `QCQty` is the transaction quantity, while `ExpectedQty` is the expected inspected quantity for that round. Enter the same expected total on all tickets in the round; the pipeline checks this field without summing it. Include July tickets when the WO continues into August: a WO with any July 2026 QC is excluded in full.
+QC quantities must be whole pieces. `QCQty` is the transaction quantity for canonical ticket input. In the MES QC export, `RoundPassQty`, `RoundReworkFailQty`, `RoundScrapQty` and `RoundActualQty` are cumulative round snapshots; the pipeline chooses one complete snapshot per WO-round and does not sum repeated ticket snapshots. `ExpectedQty` is checked against the selected round total. July 2026 rows are excluded by `CreatedDateTime`; later rounds for the same WO are retained.
 
 `InitialWorker` is the explicitly identified original producer. Never put a repair/rescue worker there. Ambiguous initial ownership does not receive an invented allocation of first-pass failures.
 
@@ -54,7 +54,7 @@ Excel data validation is an entry aid. Python performs the authoritative validat
 
 ```text
 input_data/
-  01_Production/
+  01_Production/  (giữ RoundNo trong dữ liệu giờ thợ)
   02_Planner_Skills/
   03_Item_Mapping/
   04_QC_Tickets/
@@ -114,7 +114,7 @@ Each output directory contains:
 
 Use a new output folder for each run to retain history. Running again in the same output folder replaces the generated results. Input workbooks are never edited.
 
-The core time model uses a random-worker / fixed-group diagnostic, with source Size Adjusted pooling. Original Item IDs remain in the canonical output. It computes network diagnostics before fitting, flags weak components, retains official Planner scores unchanged, and evaluates real WOs chronologically. DUMMY/unlinked references remain time-model diagnostics but cannot establish WO-level validation. WOs spanning the validation cutoff are embargoed. Test predictions use train-fitted effects and a train-only smearing correction; unseen workers/groups are counted.
+The core time model uses a random-worker / fixed-group diagnostic, with source Size Adjusted pooling. Production rows retain `RoundNo`, and duplicate checks use `Reference + Worker + Item Number + RAF Month + RoundNo`. Original Item IDs remain in the canonical output. It computes network diagnostics before fitting, flags weak components, retains official Planner scores unchanged, and evaluates real WOs chronologically. DUMMY/unlinked references remain time-model diagnostics but cannot establish WO-level validation. WOs spanning the validation cutoff are embargoed. Test predictions use train-fitted effects and a train-only smearing correction; unseen workers/groups are counted.
 
 The historical estimator's approximate worker intervals are conditional diagnostics, not validated skill-certification confidence. Nonconvergence is explicitly reported. No time effect is relabeled as quality difficulty or an official 0–10 worker skill.
 
@@ -140,10 +140,10 @@ Reference for the likelihood parameterization: [PyMC BetaBinomial documentation]
 | Mapping and joins | Exact mappings, uniqueness, no prefix inference, many-to-one join validation | Engineering sign-off and size residual screening |
 | Planner skill | Raw 0–10 preserved; duplicate keys rejected; candidate model rejects future/undated skill as an observed feature | Effective-dated history with multiple snapshots and full approval workflow |
 | Time | Aggregate effort diagnostics, chronological validation, explicit units | Clean-time estimator and approved WAPE threshold |
-| QC | July whole-WO exclusion, unique tickets, first-round denominator and round reconciliation | Validate source-specific QC adapter against actual transactions |
+| QC | Row-level July exclusion by CreatedDateTime, cumulative snapshot selection, JDescription disposition, first-round denominator and round reconciliation | Validate source-specific snapshot/version policy against actual transactions |
 | Recovery | Zero failures → missing; observed decay weights; open WO diagnostics and sensitivity; no Scrap=0 | Approved terminal status/maturity policy and calibrated recovery usability/weights |
 | Touch | Actual labor intervals, QC boundaries, Process guard, SelfRework/AssistedRescue | Empirical coverage/reconciliation; capacity and rescue-success quantity attribution |
-| Quality model | Optional candidate implementation, train-only scaling and effects | Run candidates on actual QC, calibration, coverage, confounding and sensitivity validation |
+| Quality model | First-round Rasch uses RoundNo=1 worker; separate repeated-round Rasch diagnostic uses WO + RoundNo + Worker, with round effect | Run holdout calibration, coverage, confounding and sensitivity validation before certification |
 | Complexity | Strict five-factor weights and evidence checks; approved sum may be shown diagnostically | Quality validation and all production approval gates; final complexity stays blank |
 | Matching | Canonical view explains missing prerequisites | Reviewed probability/ranking engine, certification/capacity inputs, Planner overrides and prospective validation |
 | Scrap | Explicit unavailable status; missing quantities stay missing | Actual MES scrap/disposition collection and approved loss model |

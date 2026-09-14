@@ -13,8 +13,68 @@ QC_COLUMNS = ["QualityOrderId", "WO", "Item Number", "RoundNo", "QCStatus", "QCQ
 
 
 def reconstruct_qc(tickets, mapping, cutoff=None):
+    tickets = tickets.copy()
+    aliases = {
+        "ItemId": "Item Number",
+        "ExpectedInspectionQty": "ExpectedQty",
+        "StartCW": "ExpectedQty",
+        "CreatedDateTime": "QC_Start",
+        "QCWorkerWrkCtrId": "InitialWorker",
+    }
+    for src, dst in aliases.items():
+        if src in tickets.columns and dst not in tickets.columns:
+            tickets = tickets.rename(columns={src: dst})
+    if "QC_Stop" not in tickets.columns:
+        if "ValidatedDateTime" in tickets.columns:
+            val = pd.to_datetime(tickets["ValidatedDateTime"], errors="coerce")
+            start = pd.to_datetime(tickets.get("QC_Start"), errors="coerce")
+            valid_val = val.notna() & val.ge("2020-01-01") & (start.isna() | val.ge(start))
+            tickets["QC_Stop"] = val.where(valid_val, start)
+        elif "QC_Start" in tickets.columns:
+            tickets["QC_Stop"] = tickets["QC_Start"]
     require(tickets, QC_COLUMNS, "QC")
-    data = tickets.copy()
+    # The MES export contains cumulative round snapshots in addition to
+    # ticket-level QCQty.  Collapse it to one authoritative row per WO-round
+    # before reconstruction; otherwise the same inspected pieces are counted
+    # once per ticket.
+    round_source = all(c in tickets.columns for c in ("RoundPassQty", "RoundReworkFailQty", "RoundScrapQty", "RoundActualQty"))
+    if round_source:
+        source = tickets.copy()
+        source["CreatedDateTime"] = pd.to_datetime(source.get("QC_Start", source.get("CreatedDateTime")), errors="coerce")
+        source["QC_Start"] = source["CreatedDateTime"]
+        source["QC_Stop"] = source["CreatedDateTime"]
+        source = source.loc[~source["CreatedDateTime"].dt.to_period("M").eq(pd.Period("2026-07"))].copy()
+        source["Item Number"] = source["Item Number"].astype("string").str.strip()
+        description = source.get("JDescription", pd.Series("", index=source.index)).fillna("").astype(str).str.strip().str.casefold()
+        source["Disposition"] = description.map({"đạt":"Pass", "sửa":"Rework", "hỏng":"Scrap"})
+        group_cols = ["WO", "Item Number", "RoundNo"]
+        numeric = ["RoundPassQty", "RoundReworkFailQty", "RoundScrapQty", "RoundActualQty", "ExpectedQty"]
+        for c in numeric:
+            source[c] = pd.to_numeric(source[c], errors="coerce")
+        source["PassQty"] = source["RoundPassQty"]
+        source["FailQty"] = source["RoundReworkFailQty"].fillna(0) + source["RoundScrapQty"].fillna(0)
+        # Use the snapshot with the largest observed round quantity.  This is
+        # equivalent to the fully populated cumulative snapshot for the
+        # current export and avoids summing repeated ticket snapshots.
+        source = source.sort_values(["RoundActualQty", "CreatedDateTime", "QualityOrderId"])
+        agg = {c: "last" for c in numeric + ["PassQty", "FailQty"]}
+        agg.update({"QC_Start": "min", "QC_Stop": "max", "QualityOrderId": "first", "InitialWorker": "first", "Disposition": "last"})
+        data = source.groupby(group_cols, as_index=False, dropna=False).agg(agg)
+        data["QCQty"] = data["RoundActualQty"]
+        data["QCStatus"] = "pass"
+        # A blank description on the selected cumulative snapshot inherits the
+        # round outcome from its authoritative quantities.
+        derived_disposition = pd.Series(
+            np.select([data["RoundScrapQty"].gt(0), data["RoundReworkFailQty"].gt(0)],
+                      ["Scrap", "Rework"], default="Pass"), index=data.index)
+        data["Disposition"] = data["Disposition"].fillna(derived_disposition)
+        data["_RoundSource"] = True
+    else:
+        data = tickets.copy()
+        description = data.get("JDescription", pd.Series("", index=data.index)).fillna("").astype(str).str.strip().str.casefold()
+        explicit = description.map({"đạt":"pass", "sửa":"fail", "hỏng":"fail"})
+        data["Disposition"] = description.map({"đạt":"Pass", "sửa":"Rework", "hỏng":"Scrap"})
+        data["QCStatus"] = explicit.where(description.ne(""), data["QCStatus"])
     data["SourceRow"] = np.arange(2, len(data)+2)
     for c in ("WO", "QualityOrderId", "Item Number", "QCStatus"):
         data[c] = data[c].astype("string").str.strip().replace("", pd.NA)
@@ -24,7 +84,8 @@ def reconstruct_qc(tickets, mapping, cutoff=None):
         data[c] = pd.to_numeric(data[c], errors="coerce")
     data["QCStatus"] = data.QCStatus.str.casefold()
     data = attach_mapping(data, mapping)
-    # Whole-WO July rule is applied before cutoff/date filtering.
+    # July is excluded at row level. Later rounds for the same WO remain
+    # eligible, which is required when a WO starts in July and finishes later.
     july = data.QC_Start.dt.to_period("M").eq(pd.Period("2026-07")) | data.QC_Stop.dt.to_period("M").eq(pd.Period("2026-07"))
     future = pd.Series(False, index=data.index)
     if cutoff is not None:
@@ -35,8 +96,10 @@ def reconstruct_qc(tickets, mapping, cutoff=None):
     invalid |= ~data.QCQty.ge(0) | data.QCQty.mod(1).ne(0) | ~data.ExpectedQty.gt(0) | data.ExpectedQty.mod(1).ne(0)
     invalid |= ~np.isfinite(data[["QCQty", "ExpectedQty", "RoundNo"]]).all(axis=1)
     invalid |= data.QualityOrderId.duplicated(keep=False)
+    if "IsRoundValid" in data.columns:
+        invalid |= pd.to_numeric(data["IsRoundValid"], errors="coerce").fillna(1).eq(0)
     bad_wos = set(data.loc[invalid & ~future, "WO"].dropna())
-    reject = invalid | data.WO.isin(bad_wos) | july | future
+    reject = invalid | data.WO.isin(bad_wos) | future | july
     exceptions = data.loc[reject].copy()
     exceptions["Reason"] = "Invalid ticket or WO; inspect source"
     exceptions.loc[exceptions.QC_Start.dt.to_period("M").eq(pd.Period("2026-07")), "Reason"] = "July QC excluded"
@@ -54,15 +117,24 @@ def reconstruct_qc(tickets, mapping, cutoff=None):
         wo_rounds = []
         previous = None
         for number, g in trajectory.groupby("RoundNo"):
-            passed = g.loc[g.QCStatus.eq("pass"), "QCQty"].sum()
-            failed = g.loc[g.QCStatus.eq("fail"), "QCQty"].sum()
+            if bool(g.get("_RoundSource", pd.Series(False, index=g.index)).any()):
+                passed = float(g["PassQty"].max())
+                failed = float(g["FailQty"].max())
+                scrap = float(g.get("RoundScrapQty", pd.Series(0, index=g.index)).max())
+                inspected = float(g["RoundActualQty"].max())
+            else:
+                passed = g.loc[g.QCStatus.eq("pass"), "QCQty"].sum()
+                failed = g.loc[g.QCStatus.eq("fail"), "QCQty"].sum()
+                scrap = 0.0
+                inspected = passed + failed
             if g.ExpectedQty.nunique() != 1 or not np.isclose(passed+failed, g.ExpectedQty.iloc[0]):
                 reason = "Round quantity reconciliation failure"
-            if previous and (g.QC_Start.min() <= previous["QC_Stop"] or passed+failed > previous["FailQty"]+1e-8):
+            rework_failed = max(0.0, failed - scrap)
+            if previous and (g.QC_Start.min() <= previous["QC_Stop"] or inspected > previous.get("ReworkQty", previous["FailQty"])+1e-8):
                 reason = "Invalid round timing or reinspected quantity exceeds prior failures"
             r = {"WO": wo, "RoundNo": int(number), "Item Number": g["Item Number"].iloc[0],
                  GROUP: g[GROUP].iloc[0], "Process": g.Process.iloc[0], "PassQty": passed,
-                 "FailQty": failed, "InspectedQty": passed+failed, "QC_Start": g.QC_Start.min(), "QC_Stop": g.QC_Stop.max()}
+                 "FailQty": failed, "ReworkQty": rework_failed, "ScrapQty": scrap, "InspectedQty": inspected, "Disposition": g.get("Disposition", pd.Series(pd.NA, index=g.index)).iloc[-1], "QC_Start": g.QC_Start.min(), "QC_Stop": g.QC_Stop.max()}
             wo_rounds.append(r)
             previous = r
         if wo_rounds and sum(r["PassQty"] for r in wo_rounds[1:]) > wo_rounds[0]["FailQty"]+1e-8:
@@ -94,7 +166,9 @@ def recovery_trajectories(rounds, cutoff, closed_wos=None):
     for wo, g in rounds.groupby("WO"):
         g = g.sort_values("RoundNo")
         first, last = g.iloc[0], g.iloc[-1]
-        fail = float(first.FailQty)
+        # Scrap is terminal at the round where it occurs. Only remaining
+        # rework failures can enter a later round.
+        fail = float(first.get("ReworkQty", first.FailQty) if isinstance(first, pd.Series) else first.FailQty)
         recovered = float(g.loc[g.RoundNo.ge(2), "PassQty"].sum())
         if recovered > fail+1e-8:
             raise ValueError(f"WO {wo}: recovered quantity exceeds first failures")
