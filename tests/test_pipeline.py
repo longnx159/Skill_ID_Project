@@ -168,7 +168,8 @@ class Rules(unittest.TestCase):
         with self.assertRaises(ValueError): predict_quality(model,test)
         first=pd.DataFrame({"Worker":["A"],"Process":["P"],"QC_Start":pd.to_datetime(["2026-08-01"])})
         planner=pd.DataFrame({"Worker ID":["A"],"Process":["P"],"Planner Verified Skill Level":[9],"EffectiveFrom":["2026-09-01"]})
-        self.assertTrue(attach_asof_skill(first,planner).CertifiedSkill.isna().all())
+        self.assertTrue(attach_asof_skill(first,planner,allow_baseline_prior=False).CertifiedSkill.isna().all())
+        self.assertEqual(attach_asof_skill(first,planner,allow_baseline_prior=True).CertifiedSkill.iloc[0], 9)
 
     def test_template_and_pipeline_end_to_end(self):
         from pipeline.create_template import create_template

@@ -242,6 +242,9 @@ Skill ID project/
 
 ## Known Issues & Methodological Notes
 
+> [!IMPORTANT]
+> **Worker Skill Baseline Policy (Locked Decision)**: Worker Skill verification performed on 2026-08-03 serves as the official baseline skill inventory. Because no prior historical skill time-series exists before this date, the 2026-08-03 verified skill levels apply retrospectively to all work orders and craftsmen prior to 2026-08-03. In WO vong dau, 7,718 work orders have their allocated craftsman's Planner Verified Skill Level directly attached.
+
 > [!WARNING]
 > **Rasch variance attenuation**: `rasch_quality.py` M-step uses $\tau_w^2 = \text{mean}(u^2)$ without adding posterior variance. This causes slight underestimation of shrinkage variances compared to `hybrid_effect.py` (which correctly accounts for posterior uncertainty). Non-blocking for pilot diagnostics.
 

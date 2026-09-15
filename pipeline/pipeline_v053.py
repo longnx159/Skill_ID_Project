@@ -360,7 +360,7 @@ def fit_time_models(data, planner, config=None):
         else:
             workers["Name"] = workers["Worker"].map(names)
     workers["Worker Name"] = workers.get("Name", workers["Worker"]).fillna(workers["Worker"])
-    workers["Planner Skill Status"] = "Current snapshot; effective date / approval history not verified"
+    workers["Planner Skill Status"] = "Verified baseline snapshot (2026-08-03) applied across all observation periods"
     core_order = ["Worker", "Worker Name", "Process", "Planner Verified Skill Level", "Aggregate Speed Effect", "Hybrid Worker Effect", "Worker Records"]
     remaining = [c for c in workers.columns if c not in core_order and c != "Name"]
     workers = workers[[c for c in core_order if c in workers.columns] + remaining]
@@ -482,6 +482,10 @@ def run_pipeline(config, template=None):
             first["Worker"] = first["ProductionWorker"].fillna(first.get("Worker"))
             first["AttributionStatus"] = np.where(first.ProductionWorker.notna(), "Single production worker in RoundNo=1", "Missing or multiple production workers in RoundNo=1")
             first = first.drop(columns=["ProductionWorker"], errors="ignore")
+            # Attach Planner Verified Skill Level from baseline snapshot (applied across all observation periods)
+            if not planner.empty and "Worker ID" in planner.columns and "Planner Verified Skill Level" in planner.columns:
+                p_skill = planner.rename(columns={"Worker ID": "Worker"})[["Worker", "Process", "Planner Verified Skill Level"]].drop_duplicates(["Worker", "Process"])
+                first = first.merge(p_skill, on=["Worker", "Process"], how="left")
         tables["QC can kiem"] = qc_exceptions
         tables["WO vong dau"] = first
         tables["QC rounds"] = rounds
@@ -549,7 +553,7 @@ def run_pipeline(config, template=None):
         ("Aggregate time diagnostic", "Available", "Includes rework; cannot be called clean cycle time"),
         ("QC reconstruction", "Available" if len(rounds) else "Missing eligible QC", "Uses WO + RoundNo, row-level July CreatedDateTime exclusion and cumulative snapshot reconciliation"),
         ("Quality model calibration", "Not validated", "Beta-binomial / WO random effect candidates require real QC and holdout validation"),
-        ("Planner history", "Not verified", "Effective-dated skill, approver and version required before go-live"),
+        ("Planner history", "Baseline snapshot applied", "2026-08-03 verified skill applied as baseline for all observation periods"),
         ("Clean touch-time model", "Not validated", "Timestamp coverage, first-pass quantity attribution and WAPE acceptance required"),
         ("Recovery weighting", "Not calibrated", "80/20 is a pilot assumption; no automatic weight redistribution"),
         ("Engineering factors", "Pending validation", "All five approved factors with evidence; size and rubric gates"),

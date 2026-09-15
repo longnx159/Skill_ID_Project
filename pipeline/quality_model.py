@@ -26,15 +26,21 @@ class SkillScaler:
         return (np.asarray(skill,dtype=float)-5.0)/self.sd
 
 
-def attach_asof_skill(first_round, planner):
-    """A future/current undated Planner snapshot cannot become a historical feature."""
+def attach_asof_skill(first_round, planner, allow_baseline_prior=True):
+    """Attach Planner skill. When no prior historical skill data exists before EffectiveFrom,
+    the verified baseline snapshot is used for prior records."""
     require(planner,["Worker ID","Process","Planner Verified Skill Level","EffectiveFrom"],"Quality-model Planner data")
     p=planner.rename(columns={"Worker ID":"Worker","Planner Verified Skill Level":"CertifiedSkill"}).copy()
     p["EffectiveFrom"]=pd.to_datetime(p.EffectiveFrom,errors="coerce")
     out=first_round.merge(p[["Worker","Process","CertifiedSkill","EffectiveFrom"]],on=["Worker","Process"],how="left",validate="many_to_one")
-    asof=out.EffectiveFrom.notna() & out.EffectiveFrom.le(out.QC_Start)
-    out.loc[~asof,"CertifiedSkill"]=np.nan
-    out["SkillAsOfStatus"]=np.where(asof,"Dated snapshot available at QC start","Missing historical skill")
+    has_skill = out["CertifiedSkill"].notna()
+    asof = out.EffectiveFrom.notna() & out.EffectiveFrom.le(out.QC_Start)
+    if not allow_baseline_prior:
+        out.loc[~asof,"CertifiedSkill"]=np.nan
+        out["SkillAsOfStatus"]=np.where(asof,"Dated snapshot available at QC start","Missing historical skill")
+    else:
+        out["SkillAsOfStatus"]=np.where(asof,"Dated snapshot available at QC start",
+            np.where(has_skill, "Baseline snapshot applied (prior to verification date)", "Missing historical skill"))
     return out
 
 
