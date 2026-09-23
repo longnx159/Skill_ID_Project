@@ -1,0 +1,51 @@
+{
+  "visualization_bytes": 3950,
+  "visualization_sha256": "7ff017652de7a5e8308e3e800088eeb6beae73ad22bf08582ab9a3c29c2de285",
+  "verification": "Fragment rendered in sandboxed browser preview; native disclosure interactions checked. No JavaScript or network dependencies in fragment.",
+  "artifacts": [
+    {
+      "path": "Assessment_EN.md",
+      "sha256": "be64315da2b84a0604c0f8789492d5192d40ad9ea042e3a9e994a47ebf05f06e"
+    },
+    {
+      "path": "attribution_transitions.csv",
+      "sha256": "ca5b98e82ab7bbd0211ae13a982344cd1210a4026d039295d992a7af88faf132"
+    },
+    {
+      "path": "audit_refresh.py",
+      "sha256": "f3a9cf28651be4b7f1767cca525bd24c260a0857c94a7b06eccf100974b47f66"
+    },
+    {
+      "path": "convergence.csv",
+      "sha256": "a6d82053831ae611058f05263c5148cff9094d8c30c5ff3c90a39de81624d5ae"
+    },
+    {
+      "path": "coverage.csv",
+      "sha256": "01e504e48643e949916905f32bb7c113bd2d7a389c1ad11e73bcc3db710bb3d1"
+    },
+    {
+      "path": "daily_attribution.csv",
+      "sha256": "85c7a21e10637606029248c9bfc51c8422634259b12758e788a175b5f1eaa356"
+    },
+    {
+      "path": "lost_link_audit.csv",
+      "sha256": "21413bddd26720936ab8c54907303a37e7a9fae81289819825c97fbebc534aac"
+    },
+    {
+      "path": "paired_intervals.csv",
+      "sha256": "055d2013b5214384dd2dd42d8312cd32828f5c122662c44b21f569a9e1d43230"
+    },
+    {
+      "path": "pooled_comparison.csv",
+      "sha256": "cdd9a8466af37672fd2606ab921ad390e117825c9dbcb5d4c05230e422b7be61"
+    },
+    {
+      "path": "refresh_audit.json",
+      "sha256": "324a2c6d800474e775cffa3ea0e5d14dfc92502be3a76cd4fa5db08eb6423e6c"
+    },
+    {
+      "path": "summarize_results.py",
+      "sha256": "857ee91f9d208ae0fab04c70d5c1525fab5a4707cad22da6fd06908cd1ef7e0f"
+    }
+  ]
+}

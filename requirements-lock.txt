@@ -1,0 +1,9 @@
+# Versions used for the September 2026 core pipeline verification (Python 3.14.3).
+# Optional Bayesian packages and legacy .xls readers are not part of this lock.
+numpy==2.4.4
+pandas==3.0.1
+openpyxl==3.1.5
+et_xmlfile==2.0.0
+python-dateutil==2.9.0.post0
+six==1.17.0
+tzdata==2025.3

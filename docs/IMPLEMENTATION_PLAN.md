@@ -1,3 +1,5 @@
+> Historical implementation snapshot. For the current runner, reporting contract, and verified behavior, see [RUN_OPERATIONS.md](RUN_OPERATIONS.md). Numerical results below belong to older runs.
+
 # Skill ID Project — Current State & Implementation Plan
 
 **Spec version:** 0.5.3-pilot.1  

@@ -9,6 +9,8 @@ It does not publish or overwrite Complexity model scores.
 
 This project implements the usable data and diagnostic stages of the local **v0.5.3 specification**. It uses one folder-based input area only, a repeatable Python pipeline, canonical result sheets, source hashes, saved time-model parameters, and automated business-rule tests.
 
+**Runtime update: 0.5.3-pilot.2.** Each core execution now creates an isolated run directory and an English success/failure summary. See [run operations](docs/RUN_OPERATIONS.md) for the current output contract, recovery command, and remaining implementation scope. Older implementation-plan counts are historical snapshots.
+
 **Current status: diagnostic / pilot preparation.** Final Technical Complexity and automated matching are deliberately unpublished. The missing operational inputs and business validation gates are listed in each result workbook. Filling a template does not itself approve a production model.
 
 ## 1. Install once
@@ -21,6 +23,8 @@ python -m venv .venv
 ```
 
 The core run needs only pandas, NumPy and openpyxl. Existing optional legacy chart/model dependencies remain separate.
+
+For the exact versions used in current verification, install `requirements-lock.txt` instead. Legacy `.xls` input requires the separate `xlrd` reader; the preflight reports a clear error when it is unavailable. Converting to `.xlsx` avoids that optional dependency.
 
 ## 2. Fill the input folders
 
@@ -105,14 +109,17 @@ All production months are retained by default. A cutoff expressed as a date alon
 
 ## 4. Results
 
-Each output directory contains:
+Each `--output` directory is an output **root**. Each execution creates a unique `run_<UTC timestamp>_<suffix>` child containing:
 
-- **Skill_ID_Ket_qua_chay_thu.xlsx**: canonical `Do kho SKU`, worker capability, validation, connectivity, QC/recovery views, exceptions and go-live gates.
-- CSV copies of result tables for Power BI or review.
+- **run_summary.md / run_summary.json**: English execution status, data reconciliation, branch-specific model health, comparisons, and actions.
+- **run.log**: persistent stage messages and exceptions.
+- **inputs/**: exact source snapshots with original source paths and hashes recorded in the manifest.
+- **artifacts/Skill_ID_Ket_qua_chay_thu.xlsx**: English `Run Summary`, canonical `Do kho SKU`, worker capability, validation, connectivity, QC/recovery views, exceptions and go-live gates.
+- **artifacts/**: CSV copies of result tables for Power BI or review.
 - **run_manifest.json**: input paths, SHA-256 hashes, configuration, cutoff, model version and limitations.
-- **time_models.json**: process-specific aggregate time-model intercepts, worker/group effects and smearing correction.
+- **artifacts/time_models.json**: process-specific aggregate time-model intercepts, worker/group effects and smearing correction.
 
-Use a new output folder for each run to retain history. Running again in the same output folder replaces the generated results. Input workbooks are never edited.
+Reusing an output root preserves every previous run. `latest_successful.json` points to a completed run only; failed exports leave the pointer unchanged. Consumers should resolve that pointer and use the exact artifact paths in the run manifest. Existing `outputs/latest` files are historical and are not updated by this runner. Input workbooks are never edited. Failed runs preserve diagnostic reports and partial files; they must not be consumed as completed results.
 
 The core time model uses a random-worker / fixed-group diagnostic, with source Size Adjusted pooling. Production rows retain `RoundNo`, and duplicate checks use `Reference + Worker + Item Number + RAF Month + RoundNo`. Original Item IDs remain in the canonical output. It computes network diagnostics before fitting, flags weak components, retains official Planner scores unchanged, and evaluates real WOs chronologically. DUMMY/unlinked references remain time-model diagnostics but cannot establish WO-level validation. WOs spanning the validation cutoff are embargoed. Test predictions use train-fitted effects and a train-only smearing correction; unseen workers/groups are counted.
 

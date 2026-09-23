@@ -4,7 +4,7 @@ Uses binomial FPY data at WO level with worker and group random effects,
 fitted by Expectation-Maximisation similar to the time model in hybrid_effect.py.
 
 Worker identity comes from production data (GSWorkerWorkingHours), NOT from
-QC inspectors. Each WO is attributed to its primary production worker.
+QC inspectors. Only an unambiguous production round worker is eligible.
 """
 from __future__ import annotations
 import logging
@@ -30,43 +30,34 @@ def fit_rasch_quality(first_round, production_data, max_iter=1000, tol=1e-5):
         PassQty, InspectedQty.
     production_data : DataFrame
         Cleaned production data with columns: Reference (=WO), Worker.
-        Used to attribute each WO to the primary production craftsman.
+        Used only for unambiguous first-round production attribution.
 
     Returns
     -------
     dict with keys: group_difficulty (DataFrame), worker_effects (DataFrame),
         intercepts (dict by Process), converged (dict by Process)
     """
+    if max_iter < 1 or tol <= 0:
+        raise ValueError("Rasch iterations and tolerance must be positive")
     if first_round.empty or production_data.empty:
         return {"group_difficulty": pd.DataFrame(), "worker_effects": pd.DataFrame(),
                 "intercepts": {}, "converged": {}}
 
-    # Prefer an explicit worker already attributed to the first QC round.
-    # This prevents a later repair worker with more total WO hours from being
-    # incorrectly assigned as the initial craftsman.
-    if "Worker" in first_round.columns and first_round["Worker"].notna().any():
-        primary = (first_round.dropna(subset=["WO", "Worker"])
-                   [["WO", "Worker"]].drop_duplicates("WO")
-                   .rename(columns={"WO": "Reference"}))
-    elif "Total Actual Hours" in production_data.columns:
-        primary = (production_data.dropna(subset=["Reference", "Worker"])
-                   .groupby(["Reference", "Worker"], as_index=False)
-                   .agg(Hours=("Total Actual Hours", "sum"))
-                   .sort_values("Hours", ascending=False)
-                   .drop_duplicates(subset=["Reference"], keep="first")
-                   [["Reference", "Worker"]])
+    # Production round attribution is authoritative. An explicitly missing Worker
+    # must never fall back to the whole-WO worker or a QC inspector.
+    if "Worker" in first_round.columns:
+        merged = first_round.copy()
+        merged["ProdWorker"] = merged["Worker"]
     else:
-        primary = (production_data.dropna(subset=["Reference", "Worker"])
-                   .drop_duplicates(subset=["Reference"], keep="first")
-                   [["Reference", "Worker"]])
-
-    # Merge production worker into QC first rounds
-    merged = first_round.merge(
-        primary.rename(columns={"Reference": "WO", "Worker": "ProdWorker"}),
-        on="WO", how="left"
-    )
-    if "ProdWorker" in merged.columns and "Worker" in merged.columns:
-        merged["ProdWorker"] = merged["ProdWorker"].fillna(merged["Worker"])
+        p = production_data.copy()
+        if "RoundNo" in p:
+            p = p.loc[p.RoundNo.eq(1)]
+        else:
+            p = p.iloc[:0]
+        counts = p.groupby("Reference").Worker.nunique()
+        p = p.loc[p.Reference.isin(counts[counts.eq(1)].index)]
+        primary = p[["Reference", "Worker"]].drop_duplicates("Reference")
+        merged = first_round.merge(primary.rename(columns={"Reference": "WO", "Worker": "ProdWorker"}), on="WO", how="left", validate="many_to_one")
 
     group_rows = []
     worker_rows = []
@@ -102,7 +93,7 @@ def fit_rasch_quality(first_round, production_data, max_iter=1000, tol=1e-5):
                  process, n_obs, n_workers, n_groups)
 
         # Initialize
-        observed_fpy = pass_qty.sum() / inspected.sum()
+        observed_fpy = np.clip(pass_qty.sum() / inspected.sum(), 1e-8, 1 - 1e-8)
         mu = np.log(observed_fpy / max(1 - observed_fpy, 1e-8))
         u = np.zeros(n_workers)  # worker effects
         v = np.zeros(n_groups)   # group effects (difficulty = -v)
@@ -193,6 +184,12 @@ def fit_rasch_quality(first_round, production_data, max_iter=1000, tol=1e-5):
                 "Rasch_P_ref": float(p_ref[k]),
                 "Rasch_Evidence_N": int(group_evidence[k]),
                 "Rasch_Converged": conv,
+                "Rasch_Iterations": iteration + 1,
+                "Rasch_Final_Delta": float(delta),
+                "Rasch_Worker_Variance": float(tau2_w),
+                "Rasch_Group_Variance": float(tau2_g),
+                "CalibrationStatus": "NOT_VALIDATED",
+                "DecisionEligibility": "BLOCKED",
             })
 
         for j in range(n_workers):

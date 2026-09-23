@@ -12,8 +12,9 @@ QC_COLUMNS = ["QualityOrderId", "WO", "Item Number", "RoundNo", "QCStatus", "QCQ
               "ExpectedQty", "QC_Start", "QC_Stop"]
 
 
-def reconstruct_qc(tickets, mapping, cutoff=None):
+def reconstruct_qc(tickets, mapping, cutoff=None, exclude_month="2026-07"):
     tickets = tickets.copy()
+    policy_time = pd.to_datetime(tickets.get("CreatedDateTime", tickets.get("QC_Start")), errors="coerce")
     aliases = {
         "ItemId": "Item Number",
         "ExpectedInspectionQty": "ExpectedQty",
@@ -33,6 +34,12 @@ def reconstruct_qc(tickets, mapping, cutoff=None):
         elif "QC_Start" in tickets.columns:
             tickets["QC_Stop"] = tickets["QC_Start"]
     require(tickets, QC_COLUMNS, "QC")
+    if "InitialWorker" not in tickets:
+        tickets["InitialWorker"] = pd.NA
+    excluded = policy_time.dt.to_period("M").eq(pd.Period(exclude_month)) if exclude_month else pd.Series(False, index=tickets.index)
+    policy_exceptions = tickets.loc[excluded].copy()
+    policy_exceptions["Reason"] = "July QC excluded" if exclude_month == "2026-07" else f"QC excluded month: {exclude_month}"
+    tickets = tickets.loc[~excluded].copy()
     # The MES export contains cumulative round snapshots in addition to
     # ticket-level QCQty.  Collapse it to one authoritative row per WO-round
     # before reconstruction; otherwise the same inspected pieces are counted
@@ -43,7 +50,6 @@ def reconstruct_qc(tickets, mapping, cutoff=None):
         source["CreatedDateTime"] = pd.to_datetime(source.get("QC_Start", source.get("CreatedDateTime")), errors="coerce")
         source["QC_Start"] = source["CreatedDateTime"]
         source["QC_Stop"] = source["CreatedDateTime"]
-        source = source.loc[~source["CreatedDateTime"].dt.to_period("M").eq(pd.Period("2026-07"))].copy()
         source["Item Number"] = source["Item Number"].astype("string").str.strip()
         description = source.get("JDescription", pd.Series("", index=source.index)).fillna("").astype(str).str.strip().str.casefold()
         source["Disposition"] = description.map({"đạt":"Pass", "sửa":"Rework", "hỏng":"Scrap"})
@@ -86,7 +92,7 @@ def reconstruct_qc(tickets, mapping, cutoff=None):
     data = attach_mapping(data, mapping)
     # July is excluded at row level. Later rounds for the same WO remain
     # eligible, which is required when a WO starts in July and finishes later.
-    july = data.QC_Start.dt.to_period("M").eq(pd.Period("2026-07")) | data.QC_Stop.dt.to_period("M").eq(pd.Period("2026-07"))
+    july = pd.Series(False, index=data.index)  # Source timestamp exclusion was applied before snapshot selection
     future = pd.Series(False, index=data.index)
     if cutoff is not None:
         future = data.QC_Stop.gt(pd.Timestamp(cutoff))
@@ -102,7 +108,6 @@ def reconstruct_qc(tickets, mapping, cutoff=None):
     reject = invalid | data.WO.isin(bad_wos) | future | july
     exceptions = data.loc[reject].copy()
     exceptions["Reason"] = "Invalid ticket or WO; inspect source"
-    exceptions.loc[exceptions.QC_Start.dt.to_period("M").eq(pd.Period("2026-07")), "Reason"] = "July QC excluded"
     exceptions.loc[future.reindex(exceptions.index, fill_value=False), "Reason"] = "After source cutoff"
     clean = data.loc[~reject].copy()
     rounds, first, rejected = [], [], []
@@ -151,8 +156,8 @@ def reconstruct_qc(tickets, mapping, cutoff=None):
             r["Worker"] = worker[0] if len(worker)==1 else pd.NA
             r["AttributionStatus"] = "Explicit initial worker" if len(worker)==1 else "Missing or ambiguous initial worker"
             first.append(r)
-    if rejected:
-        exceptions = pd.concat([exceptions, *rejected], ignore_index=True)
+    if rejected or not policy_exceptions.empty:
+        exceptions = pd.concat([exceptions, policy_exceptions, *rejected], ignore_index=True)
     return pd.DataFrame(rounds), pd.DataFrame(first), exceptions
 
 

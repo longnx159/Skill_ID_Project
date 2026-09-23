@@ -198,7 +198,7 @@ class Rules(unittest.TestCase):
             items=result["tables"]["Do kho SKU"]
             self.assertEqual(items.FPY_Raw_Difficulty.iloc[0],4)
             self.assertTrue(items["Final Technical Complexity"].isna().all())
-            self.assertTrue((Path(tmp)/"out"/"Skill_ID_Ket_qua_chay_thu.xlsx").exists())
+            self.assertTrue((result["output_dir"]/"artifacts"/"Skill_ID_Ket_qua_chay_thu.xlsx").exists())
 
     def test_incremental_folder_ingestion_combines_files_and_skips_lock(self):
         from pipeline.pipeline_v053 import load_inputs, discover_input_files, run_pipeline
@@ -219,7 +219,7 @@ class Rules(unittest.TestCase):
         self.assertEqual(sources["Production"].SourceFile.nunique(),2)
         result=run_pipeline(Config(input_dir=fixture_dir,output_dir=fixture_dir/"out"))
         self.assertEqual(len(result["data"]),2)
-        self.assertTrue((fixture_dir/"out"/"Skill_ID_Ket_qua_chay_thu.xlsx").exists())
+        self.assertTrue((result["output_dir"]/"artifacts"/"Skill_ID_Ket_qua_chay_thu.xlsx").exists())
 
 
     def test_mes_production_and_qc_database_ingestion(self):

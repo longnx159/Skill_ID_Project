@@ -17,7 +17,7 @@ from .qc_pipeline import reconstruct_qc, recovery_trajectories, recovery_groups,
 from .scoring import technical_complexity
 
 LOG = logging.getLogger(__name__)
-ID_TYPES = {c:"string" for c in ["Reference","WO","Worker","Worker ID","InitialWorker","Item Number","Item Number (Size Adjusted)","QualityOrderId","EventID"]}
+ID_TYPES = {c:"string" for c in ["Reference","WO","Worker","Worker ID","InitialWorker","Item Number","ItemNumber","ProductionOrderNumber","Item Number (Size Adjusted)","QualityOrderId","EventID"]}
 
 FOLDER_DATASETS = {
     "Production": ("01_Production", "Production"),
@@ -65,53 +65,60 @@ def read_dataset_files(paths, sheet_name):
         if path.suffix.lower() == ".csv":
             frame = pd.read_csv(path, dtype=ID_TYPES)
         else:
-            workbook = pd.ExcelFile(path)
-            sheet_names = workbook.sheet_names
-            if sheet_name == "Production" and "GSWorkerWorkingHours" in sheet_names and "WorkOrderData" in sheet_names:
-                df_worker = pd.read_excel(path, sheet_name="GSWorkerWorkingHours", dtype=ID_TYPES)
-                df_wo = pd.read_excel(path, sheet_name="WorkOrderData", dtype=ID_TYPES)
-                df_worker = df_worker[df_worker["ProductionOrderNumber"].astype(str).str.strip().str.upper().ne("OTHER")].dropna(subset=["ProductionOrderNumber", "Worker"])
-                df_wo = df_wo[df_wo["ProductionOrderNumber"].astype(str).str.strip().str.upper().ne("OTHER")].dropna(subset=["ProductionOrderNumber"])
-                final_col = "Final" if "Final" in df_worker.columns else ("Origin" if "Origin" in df_worker.columns else None)
-                df_worker["WorkerHours"] = pd.to_numeric(df_worker[final_col], errors="coerce").fillna(0) if final_col else 1.0
-                # Preserve the authoritative production round.  A WO can be
-                # repaired by a different worker, so aggregating at WO alone
-                # loses the assignment needed by the round-level QC model.
-                agg_cols = ["ProductionOrderNumber", "RoundNo", "Worker"] if "RoundNo" in df_worker.columns else ["ProductionOrderNumber", "Worker"]
-                if "Name" in df_worker.columns:
-                    agg_cols.append("Name")
-                if "Department" in df_worker.columns:
-                    agg_cols.append("Department")
-                worker_agg = df_worker.groupby(agg_cols, as_index=False)["WorkerHours"].sum()
-                total_keys = ["ProductionOrderNumber", "RoundNo"] if "RoundNo" in df_worker.columns else ["ProductionOrderNumber"]
-                total_wo_hours = df_worker.groupby(total_keys)["WorkerHours"].sum().reset_index(name="TotalRoundHours")
-                worker_count = df_worker.groupby(total_keys)["Worker"].nunique().reset_index(name="RoundWorkerCount")
-                merged = worker_agg.merge(total_wo_hours, on=total_keys)
-                merged = merged.merge(worker_count, on=total_keys, how="left")
-                merged = merged.merge(df_wo, on="ProductionOrderNumber", how="inner")
-                good_cw = pd.to_numeric(merged.get("GoodCW", 0), errors="coerce").fillna(0)
-                # MES has no worker-level piece count.  Use equal allocation
-                # within a WO-round as an explicit estimate; never allocate by
-                # hours, which makes hours/piece identical for all workers.
-                if "WorkOrderStatus" not in df_worker.columns:
-                    # Backward-compatible fixture/legacy export path. Real
-                    # MES exports carry WorkOrderStatus and use equal
-                    # WO-round allocation above.
-                    merged["Qty Doing"] = np.where(merged["TotalRoundHours"].gt(0), (merged["WorkerHours"] / merged["TotalRoundHours"]) * good_cw, 0)
-                    merged["Qty Doing Source"] = "Legacy hour allocation from GoodCW (estimated)"
+            with pd.ExcelFile(path) as workbook:
+                sheet_names = workbook.sheet_names
+                if sheet_name == "Production" and "GSWorkerWorkingHours" in sheet_names and "WorkOrderData" in sheet_names:
+                    df_worker = pd.read_excel(workbook, sheet_name="GSWorkerWorkingHours", dtype=ID_TYPES)
+                    df_wo = pd.read_excel(workbook, sheet_name="WorkOrderData", dtype=ID_TYPES)
+                    df_worker = df_worker[df_worker["ProductionOrderNumber"].astype(str).str.strip().str.upper().ne("OTHER")].dropna(subset=["ProductionOrderNumber", "Worker"])
+                    df_wo = df_wo[df_wo["ProductionOrderNumber"].astype(str).str.strip().str.upper().ne("OTHER")].dropna(subset=["ProductionOrderNumber"])
+                    final_col = "Final" if "Final" in df_worker.columns else ("Origin" if "Origin" in df_worker.columns else None)
+                    if final_col is None:
+                        raise ValueError("MES worker hours require Final or Origin; hours cannot be inferred")
+                    df_worker["WorkerHours"] = pd.to_numeric(df_worker[final_col], errors="coerce").fillna(0)
+                    # Preserve the authoritative production round.  A WO can be
+                    # repaired by a different worker, so aggregating at WO alone
+                    # loses the assignment needed by the round-level QC model.
+                    agg_cols = ["ProductionOrderNumber", "RoundNo", "Worker"] if "RoundNo" in df_worker.columns else ["ProductionOrderNumber", "Worker"]
+                    if "Name" in df_worker.columns:
+                        agg_cols.append("Name")
+                    if "Department" in df_worker.columns:
+                        agg_cols.append("Department")
+                    worker_agg = df_worker.groupby(agg_cols, as_index=False)["WorkerHours"].sum()
+                    total_keys = ["ProductionOrderNumber", "RoundNo"] if "RoundNo" in df_worker.columns else ["ProductionOrderNumber"]
+                    total_wo_hours = df_worker.groupby(total_keys)["WorkerHours"].sum().reset_index(name="TotalRoundHours")
+                    worker_count = df_worker.groupby(total_keys)["Worker"].nunique().reset_index(name="RoundWorkerCount")
+                    merged = worker_agg.merge(total_wo_hours, on=total_keys)
+                    merged = merged.merge(worker_count, on=total_keys, how="left")
+                    if df_wo["ProductionOrderNumber"].duplicated().any():
+                        raise ValueError("WorkOrderData contains duplicate ProductionOrderNumber keys")
+                    merged = merged.merge(df_wo, on="ProductionOrderNumber", how="left", validate="many_to_one", indicator=True)
+                    if merged["_merge"].ne("both").any():
+                        LOG.warning("%d worker-round rows have unmatched WorkOrderData keys; retained for quarantine", merged["_merge"].ne("both").sum())
+                    merged = merged.rename(columns={"_merge": "WOJoinStatus"})
+                    good_cw = pd.to_numeric(merged.get("GoodCW", 0), errors="coerce").fillna(0)
+                    # MES has no worker-level piece count.  Use equal allocation
+                    # within a WO-round as an explicit estimate; never allocate by
+                    # hours, which makes hours/piece identical for all workers.
+                    if "WorkOrderStatus" not in df_worker.columns:
+                        # Backward-compatible fixture/legacy export path. Real
+                        # MES exports carry WorkOrderStatus and use equal
+                        # WO-round allocation above.
+                        merged["Qty Doing"] = np.where(merged["TotalRoundHours"].gt(0), (merged["WorkerHours"] / merged["TotalRoundHours"]) * good_cw, 0)
+                        merged["Qty Doing Source"] = "Legacy hour allocation from GoodCW (estimated)"
+                    else:
+                        merged["Qty Doing"] = np.where(merged["RoundWorkerCount"].gt(0), good_cw / merged["RoundWorkerCount"], 0)
+                        merged["Qty Doing Source"] = "Equal WO-round allocation from GoodCW (estimated)"
+                    merged["Total Actual Hours"] = merged["WorkerHours"]
+                    merged["Reference"] = merged["ProductionOrderNumber"].astype("string").str.strip()
+                    merged["Item Number"] = merged["ItemNumber"].astype("string").str.strip() if "ItemNumber" in merged.columns else merged.get("Item Number", pd.NA)
+                    merged["RAF Month"] = pd.to_datetime(merged.get("MaxRAFDate", merged.get("RAF Month")), errors="coerce")
+                    if "Name" in merged.columns:
+                        merged["Worker Name"] = merged["Name"]
+                    frame = merged
                 else:
-                    merged["Qty Doing"] = np.where(merged["RoundWorkerCount"].gt(0), good_cw / merged["RoundWorkerCount"], 0)
-                    merged["Qty Doing Source"] = "Equal WO-round allocation from GoodCW (estimated)"
-                merged["Total Actual Hours"] = merged["WorkerHours"]
-                merged["Reference"] = merged["ProductionOrderNumber"].astype("string").str.strip()
-                merged["Item Number"] = merged["ItemNumber"].astype("string").str.strip() if "ItemNumber" in merged.columns else merged.get("Item Number", pd.NA)
-                merged["RAF Month"] = pd.to_datetime(merged.get("MaxRAFDate", merged.get("RAF Month")), errors="coerce")
-                if "Name" in merged.columns:
-                    merged["Worker Name"] = merged["Name"]
-                frame = merged
-            else:
-                selected = sheet_name if sheet_name in sheet_names else sheet_names[0]
-                frame = pd.read_excel(path, sheet_name=selected, dtype=ID_TYPES)
+                    selected = sheet_name if sheet_name in sheet_names else sheet_names[0]
+                    frame = pd.read_excel(workbook, sheet_name=selected, dtype=ID_TYPES)
         frame = frame.dropna(how="all")
         if not frame.empty:
             frame["SourceFile"] = path.name
@@ -165,8 +172,6 @@ def _normalise_production_aliases(frame):
         out["Worker"] = out["Name"]
     elif "Worker" in out.columns and "Name" not in out.columns:
         out["Name"] = out["Worker"]
-    if "Total Actual Hours" not in out.columns and "Qty Doing" in out.columns:
-        out["Total Actual Hours"] = pd.to_numeric(out["Qty Doing"], errors="coerce").fillna(1.0)
     return out
 
 
@@ -189,6 +194,10 @@ def enrich_production_from_master(production, reference_master=None, item_master
     def clean_key(frame, col):
         frame = frame.copy()
         frame[col] = frame[col].astype("string").str.strip()
+        if frame[col].isna().any() or frame[col].eq("").any():
+            raise ValueError(f"Master has missing {col} keys")
+        if frame.drop_duplicates().duplicated(col, keep=False).any():
+            raise ValueError(f"Master has conflicting duplicate {col} keys")
         return frame
 
     # Attach Reference Master if provided
@@ -198,7 +207,7 @@ def enrich_production_from_master(production, reference_master=None, item_master
         for c in ref_cols:
             if c in out.columns:
                 ref = ref.rename(columns={c: f"{c}_Master"})
-        out = out.merge(ref[["Reference"] + [c for c in ref.columns if c != "Reference"]], on="Reference", how="left")
+        out = out.merge(ref[["Reference"] + [c for c in ref.columns if c != "Reference"]], on="Reference", how="left", validate="many_to_one")
         for c in ["Customer Name", "Product Type", "RAF Month"]:
             if f"{c}_Master" in out.columns:
                 out[c] = out[c].fillna(out[f"{c}_Master"])
@@ -211,7 +220,7 @@ def enrich_production_from_master(production, reference_master=None, item_master
         for c in item_cols:
             if c in out.columns:
                 item = item.rename(columns={c: f"{c}_Master"})
-        out = out.merge(item[["Item Number"] + [c for c in item.columns if c != "Item Number"]], on="Item Number", how="left")
+        out = out.merge(item[["Item Number"] + [c for c in item.columns if c != "Item Number"]], on="Item Number", how="left", validate="many_to_one")
         for c in ["Item Number (Size Adjusted)", "Process", "Material", "Product Type"]:
             if f"{c}_Master" in out.columns:
                 out[c] = out[c].fillna(out[f"{c}_Master"])
@@ -222,11 +231,11 @@ def enrich_production_from_master(production, reference_master=None, item_master
         worker = clean_key(worker_master, "Worker").drop_duplicates("Worker")
         if "Name" in worker.columns and "Name" in out.columns:
             worker = worker.rename(columns={"Name": "Name_Master"})
-            out = out.merge(worker[["Worker", "Name_Master"]], on="Worker", how="left")
+            out = out.merge(worker[["Worker", "Name_Master"]], on="Worker", how="left", validate="many_to_one")
             out["Name"] = out["Name"].fillna(out["Name_Master"])
             out = out.drop(columns=["Name_Master"])
         elif "Name" in worker.columns:
-            out = out.merge(worker[["Worker", "Name"]], on="Worker", how="left")
+            out = out.merge(worker[["Worker", "Name"]], on="Worker", how="left", validate="many_to_one")
 
     # Prefix heuristic for Process if Process is still missing or NA
     if "Process" not in out.columns or out["Process"].isna().any():
@@ -276,7 +285,7 @@ def enrich_production_from_master(production, reference_master=None, item_master
         out["Name"] = out["Name"].fillna(out.get("Worker Name", out["Worker"]))
 
     if "RAF Month" not in out.columns:
-        out["RAF Month"] = pd.Timestamp.now().strftime("%Y-%m-01")
+        raise ValueError("Production requires RAF Month; current date is not a source date")
     else:
         out["RAF Month"] = pd.to_datetime(out["RAF Month"], errors="coerce")
 
@@ -347,6 +356,7 @@ def fit_time_models(data, planner, config=None):
         metrics.append(record)
         saved_models[process] = {"intercept": model["intercept"], "smearing_factor":smear, "unit":"hours per final OK",
             "status":"Diagnostic Only", "converged":bool(model["converged"]),
+            "iterations":model["iterations"], "log_likelihood":model["log_likelihood"],
             "worker_effects":model["worker_scores"].set_index("Worker")["Hybrid Worker Effect"].to_dict(),
             "group_effects":model["item_scores"].set_index("Item Number")["Hybrid Item FE"].to_dict()}
     items = pd.concat(item_rows, ignore_index=True) if item_rows else pd.DataFrame()
@@ -369,28 +379,54 @@ def fit_time_models(data, planner, config=None):
 
 def write_outputs(output, tables, manifest, models):
     from .workbook_io import write_result_workbook
+    from .run_reporting import atomic_json
     output.mkdir(parents=True, exist_ok=True)
     for sheet, frame in tables.items():
-        csv_path = output / f"{sheet}.csv"
-        try:
-            frame.to_csv(csv_path, index=False, encoding="utf-8-sig")
-        except PermissionError:
-            fallback = output / f"{sheet}_new.csv"
-            LOG.warning("Permission denied writing %s (file open in Excel). Saved to %s", csv_path.name, fallback.name)
-            frame.to_csv(fallback, index=False, encoding="utf-8-sig")
-    xlsx_path = output / "Skill_ID_Ket_qua_chay_thu.xlsx"
-    try:
-        write_result_workbook(xlsx_path, tables)
-    except PermissionError:
-        fallback_xlsx = output / "Skill_ID_Ket_qua_chay_thu_new.xlsx"
-        LOG.warning("Permission denied writing %s (file open in Excel). Saved to %s", xlsx_path.name, fallback_xlsx.name)
-        write_result_workbook(fallback_xlsx, tables)
-    (output/"run_manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
-    (output/"time_models.json").write_text(json.dumps(models, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+        frame.to_csv(output / f"{sheet}.csv", index=False, encoding="utf-8-sig")
+    write_result_workbook(output / "Skill_ID_Ket_qua_chay_thu.xlsx", tables)
+    atomic_json(output / "time_models.json", models)
 
 
 def run_pipeline(config, template=None):
-    inputs = load_inputs(config, template)
+    """Run into a unique child of output_dir and persist success/failure reports."""
+    from .run_reporting import RunSession
+    session = RunSession(config)
+    result = None
+    try:
+        snapshot_config, snapshot_template = session.call("Input snapshot", session.snapshot_inputs, template)
+        inputs = session.call("Input loading", load_inputs, snapshot_config, snapshot_template)
+        session.start_stage("Production validation")
+        result = _compute_pipeline(config, inputs, session)
+        session.finish_stage()
+        session.collect(result)
+        from .run_reporting import file_hash
+        current_code = {p.name: file_hash(p) for p in Path(__file__).parent.glob("*.py")}
+        if current_code != session.summary["code_sha256"]:
+            raise ValueError("Pipeline code changed during execution; rerun using a fixed code version")
+        completed_stages = {s["stage"] for s in session.summary["stages"]}
+        for name in ("QC reconstruction", "First-pass models", "Rework models"):
+            if name not in completed_stages:
+                session.summary["stages"].append({"stage": name, "status": "NOT_RUN", "reason": "Required eligible input unavailable"})
+        for name in ("BOM", "Stone scoring"):
+            session.summary["stages"].append({"stage": name, "status": "NOT_RUN", "reason": "Separate optional workflow; not invoked by the core run"})
+        session.call("Artifact export", write_outputs, session.staging, result["tables"], result["manifest"], result["models"])
+        result["manifest"] = session.finish(result)
+        result["output_dir"] = session.path
+        result["summary"] = session.summary
+        return result
+    except BaseException as exc:
+        try:
+            session.logger.exception("Run failed")
+            session.finish(result, error=exc)
+        except BaseException as report_error:
+            import sys
+            print(f"Could not finalize failure report at {session.path}: {report_error}", file=sys.stderr)
+        raise
+    finally:
+        session.close()
+
+
+def _compute_pipeline(config, inputs, session):
     raw = inputs.get("Production", pd.DataFrame())
     raw = enrich_production_from_master(raw,
         inputs.get("Reference Master", pd.DataFrame()),
@@ -402,6 +438,7 @@ def run_pipeline(config, template=None):
     mapping_raw = inputs.get("Item Mapping", pd.DataFrame())
     if not item_master.empty and not mapping_raw.empty:
         combined_items = pd.concat([mapping_raw, item_master], ignore_index=True)
+        item_mapping(combined_items)  # Reject conflicting mappings before choosing a source
         combined_items = combined_items.drop_duplicates(subset=["Item Number"], keep="last")
         mapping_source = combined_items
     elif not item_master.empty:
@@ -415,11 +452,20 @@ def run_pipeline(config, template=None):
     data = clean_production_data(raw, config.incomplete_month)
     data = attach_mapping(data, mapping)
     if "RoundNo" not in data.columns:
-        data["RoundNo"] = 1
+        data["RoundNo"] = np.nan
+        LOG.warning("Production RoundNo is missing; round attribution is unavailable")
     data["RoundNo"] = pd.to_numeric(data["RoundNo"], errors="coerce")
+    invalid_round = ~np.isfinite(data.RoundNo) | data.RoundNo.lt(1) | data.RoundNo.mod(1).ne(0)
+    if invalid_round.any():
+        LOG.warning("%d production rows have unknown or invalid RoundNo; excluded from worker QC attribution", invalid_round.sum())
+        data.loc[invalid_round, "RoundNo"] = np.nan
     data["SourceRow"] = data.get("SourceRow", data.index+2)
     if config.source_cutoff:
         cutoff = pd.Timestamp(config.source_cutoff)
+        if pd.isna(cutoff):
+            raise ValueError("Invalid source cutoff")
+        if cutoff.tzinfo is not None:
+            cutoff = cutoff.tz_convert(config.source_timezone).tz_localize(None)
         data = data[data["RAF Month"].le(cutoff)].copy()
     else:
         cutoff = pd.to_datetime(raw["RAF Month"], errors="coerce").max()
@@ -444,18 +490,20 @@ def run_pipeline(config, template=None):
     data = data.loc[~duplicate & ~unassigned].reset_index(drop=True)
     if data.empty:
         raise ValueError("No eligible production rows. Fill Production and Planner Skills in the input template.")
-    time_items, workers, validation, network, models = fit_time_models(data, planner, config)
+    time_items, workers, validation, network, models = session.call("Time models", fit_time_models, data, planner, config)
+    session.start_stage("QC preparation")
     item_output = mapping.merge(time_items, on=["Process",GROUP], how="left", validate="many_to_one")
     item_output["FPY_Rasch_Difficulty"] = np.nan
     item_output["FPY_Raw_Difficulty"] = np.nan
     item_output["QualityDifficulty"] = np.nan
     item_output["Final Technical Complexity"] = np.nan
     item_output["Quality Status"] = "Insufficient Evidence: QC not supplied"
-    tables = {}
+    tables = {"Input join exceptions": raw.loc[raw["WOJoinStatus"].ne("both")].copy()} if "WOJoinStatus" in raw else {}
     qc = inputs.get("QC Tickets", pd.DataFrame())
     rounds = pd.DataFrame()
     if not qc.empty:
-        rounds, first, qc_exceptions = reconstruct_qc(qc, mapping, cutoff)
+        rounds, first, qc_exceptions = session.call("QC reconstruction", reconstruct_qc, qc, mapping, cutoff, exclude_month=config.qc_exclude_month)
+        session.start_stage("QC attribution and recovery")
         # Worker attribution is performed at WO + RoundNo.  A round with more
         # than one worker stays in the round output but is excluded from
         # individual Rasch attribution until worker-level quantities exist.
@@ -479,7 +527,7 @@ def run_pipeline(config, template=None):
             initial = worker_round.loc[worker_round.RoundNo.eq(1)].copy()
             initial = initial.loc[initial.WorkersInRound.eq(1)].drop_duplicates("Reference")
             first = first.merge(initial[["Reference", "Worker", "Hours", "Worker Name"]].rename(columns={"Reference":"WO", "Worker":"ProductionWorker", "Hours":"Round1WorkerHours"}), on="WO", how="left")
-            first["Worker"] = first["ProductionWorker"].fillna(first.get("Worker"))
+            first["Worker"] = first["ProductionWorker"]
             first["AttributionStatus"] = np.where(first.ProductionWorker.notna(), "Single production worker in RoundNo=1", "Missing or multiple production workers in RoundNo=1")
             first = first.drop(columns=["ProductionWorker"], errors="ignore")
             # Attach Planner Verified Skill Level from baseline snapshot (applied across all observation periods)
@@ -507,17 +555,20 @@ def run_pipeline(config, template=None):
             item_output["FPY_Raw_Difficulty"] = 10*(1-item_output.ObservedFPY)
             # Fit fast Rasch IRT model using production workers
             from .rasch_quality import fit_rasch_quality, fit_rasch_rework
-            rasch_result = fit_rasch_quality(first, data)
+            rasch_result = session.call("First-pass models", fit_rasch_quality, first, data, max_iter=config.rasch_max_iter, tol=config.rasch_tolerance)
+            session.start_stage("First-pass result assembly")
+            tables["Rasch first pass groups"] = rasch_result["group_difficulty"]
+            tables["Rasch first pass workers"] = rasch_result["worker_effects"]
             rasch_groups = rasch_result["group_difficulty"]
             if not rasch_groups.empty:
                 rasch_merge = rasch_groups[["Process", "SizeAdjustedGroup", "FPY_Rasch_Difficulty", "Rasch_Converged"]].copy()
                 rasch_merge = rasch_merge.rename(columns={"SizeAdjustedGroup": GROUP})
                 item_output = item_output.drop(columns=["FPY_Rasch_Difficulty"], errors="ignore")
-                item_output = item_output.merge(rasch_merge[["Process", GROUP, "FPY_Rasch_Difficulty"]], on=["Process", GROUP], how="left")
+                item_output = item_output.merge(rasch_merge.rename(columns={"Rasch_Converged": "FirstPass_Rasch_Converged"}), on=["Process", GROUP], how="left", validate="many_to_one")
                 has_rasch = item_output["FPY_Rasch_Difficulty"].notna()
                 has_raw = item_output["ObservedFPY"].notna()
                 item_output["Quality Status"] = np.where(
-                    has_rasch, "Rasch IRT calibrated; assignment-conditional",
+                    has_rasch, np.where(item_output.FirstPass_Rasch_Converged.eq(True), "Rasch converged; unvalidated diagnostic", "Rasch nonconverged; decision use blocked"),
                     np.where(has_raw, "Raw FPY fallback; uncalibrated assignment-conditional",
                              "Insufficient Evidence: no eligible QC"))
             else:
@@ -525,11 +576,12 @@ def run_pipeline(config, template=None):
             # Rework Rasch is a separate diagnostic branch.  It only uses
             # WO-rounds with one matched production worker, avoiding whole-WO
             # primary-worker substitution.
-            rework_result = fit_rasch_rework(rounds, data)
+            rework_result = session.call("Rework models", fit_rasch_rework, rounds, data, max_iter=config.rasch_max_iter, tol=config.rasch_tolerance)
+            session.start_stage("Rework result assembly")
             if not rework_result["group_difficulty"].empty:
                 rg = rework_result["group_difficulty"].rename(columns={"SizeAdjustedGroup": GROUP})
                 rg = rg.rename(columns={"FPY_Rasch_Difficulty":"Rework_Rasch_Difficulty"})
-                item_output = item_output.merge(rg[["Process", GROUP, "Rework_Rasch_Difficulty", "Rasch_Evidence_N", "Rasch_Converged"]], on=["Process", GROUP], how="left", suffixes=("", "_Rework"))
+                item_output = item_output.merge(rg[["Process", GROUP, "Rework_Rasch_Difficulty", "Rasch_Evidence_N", "Rasch_Converged"]].rename(columns={"Rasch_Converged": "Rework_Rasch_Converged", "Rasch_Evidence_N": "Rework_Rasch_Evidence_N"}), on=["Process", GROUP], how="left", suffixes=("", "_Rework"))
                 tables["Rasch rework groups"] = rg
                 tables["Rasch rework workers"] = rework_result["worker_effects"]
                 tables["Rasch rework rounds"] = rework_result["round_effects"]
@@ -537,6 +589,7 @@ def run_pipeline(config, template=None):
                 tables["Rasch rework groups"] = pd.DataFrame()
         else:
             item_output["Quality Status"] = "Insufficient Evidence: no eligible QC"
+    session.start_stage("Touch and engineering checks")
     touch = inputs.get("Touch Events", pd.DataFrame())
     if not touch.empty:
         if config.source_cutoff:
@@ -549,9 +602,14 @@ def run_pipeline(config, template=None):
         calculated = calculated.rename(columns={"Final Technical Complexity":"Approved Factor Weighted Sum"})
         item_output = item_output.merge(calculated, on=["Item Number","Process"], how="left", validate="one_to_one")
         tables["Checklist cham diem"] = factors
+    for branch, flag in (("FirstPass", "FirstPass_Rasch_Converged"), ("Rework", "Rework_Rasch_Converged")):
+        values = item_output.get(flag, pd.Series(pd.NA, index=item_output.index))
+        item_output[f"{branch}_Fit_Status"] = np.where(values.eq(True).fillna(False), "CONVERGED", np.where(values.eq(False).fillna(False), "NONCONVERGED", "INSUFFICIENT_EVIDENCE"))
+        item_output[f"{branch}_Calibration_Status"] = "NOT_VALIDATED"
+        item_output[f"{branch}_Decision_Eligibility"] = "BLOCKED"
     gates = [
         ("Aggregate time diagnostic", "Available", "Includes rework; cannot be called clean cycle time"),
-        ("QC reconstruction", "Available" if len(rounds) else "Missing eligible QC", "Uses WO + RoundNo, row-level July CreatedDateTime exclusion and cumulative snapshot reconciliation"),
+        ("QC reconstruction", "Available" if len(rounds) else "Missing eligible QC", f"Uses WO + RoundNo; QC excluded month={config.qc_exclude_month or 'none'}; cumulative snapshot reconciliation"),
         ("Quality model calibration", "Not validated", "Beta-binomial / WO random effect candidates require real QC and holdout validation"),
         ("Planner history", "Baseline snapshot applied", "2026-08-03 verified skill applied as baseline for all observation periods"),
         ("Clean touch-time model", "Not validated", "Timestamp coverage, first-pass quantity attribution and WAPE acceptance required"),
@@ -571,9 +629,8 @@ def run_pipeline(config, template=None):
     # Canonical views remain visibly unavailable instead of invented data.
     for name, reason in {"Ghep tho Semi":"No calibrated matching model or approved assignment gates", "BOM bang chung":"BOM not supplied / version not approved", "Phieu cham pilot":"Prospective pilot has not run", "WO chua noi":"See Production exceptions and QC can kiem for source-specific exceptions"}.items():
         tables[name] = pd.DataFrame({"Status":["Unavailable"], "Reason":[reason]})
-    paths = input_source_paths(config, template)
     manifest = {"model_version":config.model_version,"configuration":asdict(config),"cutoff":str(cutoff),
-        "sources":[{"path":str(p.resolve()),"sha256":hashlib.sha256(p.read_bytes()).hexdigest()} for p in paths],
+        "sources":session.summary["sources"],
         "retained_production_rows":len(data),"status":"Diagnostic Only; production gates incomplete",
         "scaling":"Planner raw 0-10 retained; time scores are latent effects, not skill levels",
         "time_validation":"Real WO chronological holdout; DUMMY references excluded from validation; spanning WOs embargoed"}
@@ -581,6 +638,4 @@ def run_pipeline(config, template=None):
     import openpyxl
     manifest["runtime"] = {"python":platform.python_version(),"pandas":pd.__version__,"numpy":np.__version__,"openpyxl":openpyxl.__version__}
     manifest["code_sha256"] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path(__file__).parent.glob("*.py")}
-    write_outputs(config.output_dir,tables,manifest,models)
-    LOG.info("Wrote %s",config.output_dir/"Skill_ID_Ket_qua_chay_thu.xlsx")
     return {"tables":tables,"data":data,"manifest":manifest,"models":models}

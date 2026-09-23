@@ -1,7 +1,9 @@
 param(
     [string]$InputDir = "input_data",
     [string]$OutputDir = "",
-    [string]$Cutoff = ""
+    [string]$Cutoff = "",
+    [string]$ExcludeMonth = "",
+    [string]$QCExcludeMonth = "2026-07"
 )
 $ErrorActionPreference = "Stop"
 $projectRoot = $PSScriptRoot
@@ -10,11 +12,11 @@ if (-not (Test-Path -LiteralPath $pythonPath)) {
     $pythonPath = (Get-Command python -ErrorAction Stop).Source
 }
 if ([string]::IsNullOrWhiteSpace($OutputDir)) {
-    $OutputDir = Join-Path $projectRoot ('outputs\run_' + (Get-Date -Format 'yyyyMMdd_HHmmss'))
+    $OutputDir = Join-Path $projectRoot 'outputs\runs'
 }
 $inputDirCandidate = if ([System.IO.Path]::IsPathRooted($InputDir)) { $InputDir } else { Join-Path $projectRoot $InputDir }
-$inputDirPath = (Resolve-Path -LiteralPath $inputDirCandidate).Path
-$runArguments = @('-m', 'pipeline.main', '--input-dir', $inputDirPath, '--output', $OutputDir)
+$inputDirPath = [System.IO.Path]::GetFullPath($inputDirCandidate)
+$runArguments = @('-m', 'pipeline.main', '--input-dir', $inputDirPath, '--output', $OutputDir, "--exclude-month=$ExcludeMonth", "--qc-exclude-month=$QCExcludeMonth")
 if (-not [string]::IsNullOrWhiteSpace($Cutoff)) { $runArguments += @('--cutoff', $Cutoff) }
 Push-Location $projectRoot
 try {

@@ -1,0 +1,9 @@
+Variant,sum,count
+group_only_all,10,10
+legacy_1000,4,10
+legacy_5000,6,10
+ridge_expanded_equal_round,10,10
+ridge_expanded_pieces,10,10
+ridge_single_capped,10,10
+ridge_single_equal_round,10,10
+ridge_single_pieces,10,10

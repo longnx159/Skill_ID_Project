@@ -1,0 +1,42 @@
+{
+  "latest": "run_20260922T110034_324937Z_9c4bc2b2",
+  "aligned": "run_20260922T135300_052233Z_05af0aec",
+  "audit": {
+    "raw_qc_rows": 30152,
+    "source_hard_error_rounds": 10,
+    "retained_hard_error_rounds": 0,
+    "eligible_rounds": 21708,
+    "eligible_wos": 11222
+  },
+  "first_pass_improvement_pct": 2.273162885600033,
+  "artifacts": [
+    {
+      "path": "Assessment_EN.md",
+      "sha256": "c93bbe3f3902d82607bd2488e1bff97a63cfeb33b04dd438154b033703f1c995"
+    },
+    {
+      "path": "calibration_bins.csv",
+      "sha256": "77f6e84036b6716a510ab05e327e72582018a49997f398b2ae9de9160473eae2"
+    },
+    {
+      "path": "convergence.csv",
+      "sha256": "ac1991d77ee5e048e81e529b66d11ff67f826f392521fff037411fd544c034c2"
+    },
+    {
+      "path": "coverage.csv",
+      "sha256": "495ee1d3d176c49378f5ec97a80c287d3e81ee0f89b9af494bd59697fbf2ebe4"
+    },
+    {
+      "path": "daily_attribution.csv",
+      "sha256": "6204dc30dd88bb4c9c40fcff82d48f3713c255a595419cc0c677e20ee8f168ea"
+    },
+    {
+      "path": "paired_intervals.csv",
+      "sha256": "9060e42af0c1e15d00d5eb3a8bdc6396190fd5c21387da7f18d05acefdee06e9"
+    },
+    {
+      "path": "pooled_comparison.csv",
+      "sha256": "9c5a54d574d7c12c8ca40587289ff175ac8683b5ba9ca6bd0b7b01fc2ddb58c1"
+    }
+  ]
+}

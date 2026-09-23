@@ -1,0 +1,24 @@
+{
+  "old_run": "run_20260922T110034_324937Z_9c4bc2b2",
+  "new_run": "run_20260922T141612_236215Z_1f94bd79",
+  "same_qc_observations_and_outcomes": true,
+  "production_worker_rows": 78785,
+  "production_wo_rows": 75767,
+  "production_max_raf_date": "2026-09-22 00:00:00",
+  "newly_linked_rounds": 1795,
+  "lost_single_worker_links": 134,
+  "lost_links_missing_worker_record": 133,
+  "lost_links_nonpositive_hours": 0,
+  "lost_links_nonpositive_goodcw": 0,
+  "lost_links_missing_rafdate": 132,
+  "recent_qc_rounds": 3836,
+  "recent_single_worker_rounds": 1127,
+  "recent_team_rounds": 4,
+  "recent_unknown_rounds": 2705,
+  "changed_source_datasets": [
+    "Engineering Factors",
+    "Production",
+    "QC Tickets"
+  ],
+  "verified_artifacts": 90
+}

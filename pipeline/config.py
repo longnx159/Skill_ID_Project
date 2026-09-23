@@ -13,18 +13,17 @@ class Config:
     ----------
     incomplete_month:
         Month string (``YYYY-MM``) to exclude from analysis. The project
-        default excludes unreliable July 2026 records; set to an empty string
-        to retain all months.
+        default retains all production months. QC has its own exclusion policy.
     """
 
     raw_path: Path = Path("Raw data gốc.xlsx")
     planner_path: Path = Path("Verified Skill Level - Planner.xlsx")
     input_dir: Path = Path("input_data")
-    output_dir: Path = Path("outputs/latest")
-    # July 2026 is excluded because the source period is known to be unreliable.
-    # Later records for the same WO remain eligible for analysis.
-    incomplete_month: str = "2026-07"
-    model_version: str = "0.5.3-pilot.1"
+    output_dir: Path = Path("outputs/runs")
+    incomplete_month: str = ""
+    qc_exclude_month: str = "2026-07"
+    source_timezone: str = "Asia/Saigon"
+    model_version: str = "0.5.3-pilot.2"
     qc_path: Path | None = None
     touch_path: Path | None = None
     factors_path: Path | None = None
@@ -32,6 +31,8 @@ class Config:
     random_seed: int = 42
     time_max_iter: int = 500
     time_tolerance: float = 1e-6
+    rasch_max_iter: int = 1000
+    rasch_tolerance: float = 1e-5
     max_als_iter: int = 100
     als_tol: float = 1e-8
     bayes_chains: int = 4
@@ -45,6 +46,15 @@ class Config:
     def __post_init__(self) -> None:
         """Validate configuration constraints."""
         errors: list[str] = []
+        import re
+        for name in ("incomplete_month", "qc_exclude_month"):
+            value = getattr(self, name)
+            if value and not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", value):
+                errors.append(f"{name} must be YYYY-MM or empty")
+        if self.source_timezone != "Asia/Saigon":
+            errors.append("Source timestamps currently require Asia/Saigon local time")
+        if self.rasch_max_iter < 1 or self.rasch_tolerance <= 0:
+            errors.append("Rasch iterations and tolerance must be positive")
         if self.time_max_iter < 1 or self.time_tolerance <= 0:
             errors.append("Time-model iterations and tolerance must be positive")
         if self.cv_folds < 2:
