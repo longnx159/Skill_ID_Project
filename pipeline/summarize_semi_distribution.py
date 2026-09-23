@@ -17,7 +17,7 @@ PART_BINS = [-0.1, 0, 1, 2, 4, 9, 19, 49, float("inf")]
 PART_LABELS = ["0", "1", "2", "3-4", "5-9", "10-19", "20-49", "50+"]
 STONE_GROUPS = {
     "Diamond": "RM_Diamond",
-    "Artificial stone": "RM_Art ST",
+    "Synthetic stone": "RM_Art ST",
     "Natural stone": "RM_Nat ST",
     "Pearl": "RM_Pearl",
     "Old stone (unspecified)": "RM_Old ST",

@@ -11,7 +11,7 @@ import math
 import pandas as pd
 
 STONE_GROUPS = {'RM_Diamond', 'RM_Art ST', 'RM_Nat ST', 'RM_Pearl', 'RM_Old ST'}
-TYPE_NAMES = {'RM_Diamond':'Diamond', 'RM_Art ST':'Artificial stone',
+TYPE_NAMES = {'RM_Diamond':'Diamond', 'RM_Art ST':'Synthetic stone',
               'RM_Nat ST':'Natural stone', 'RM_Pearl':'Pearl', 'RM_Old ST':'Old stone (unspecified)'}
 
 

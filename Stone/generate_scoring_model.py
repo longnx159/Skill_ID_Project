@@ -252,10 +252,10 @@ def main():
             major_size_mm = best['max_val']
             
         # Scoring Rules
-        # Material Score: No Stone=0, Artificial stone=5, Pearl=7, Natural stone=8, Diamond=10
+        # Material Score: No Stone=0, Synthetic stone=5, Pearl=7, Natural stone=8, Diamond=10
         material_scores = {
             'No Stone': 0,
-            'Artificial stone': 5,
+            'Synthetic stone': 5,
             'Pearl': 7,
             'Natural stone': 8,
             'Diamond': 10
@@ -419,7 +419,7 @@ def main():
         # Quantities by Material
         dia_qty = group[group['Stone Type'] == 'Diamond']['Effective Stone Count'].sum()
         nat_qty = group[group['Stone Type'] == 'Natural stone']['Effective Stone Count'].sum()
-        art_qty = group[group['Stone Type'] == 'Artificial stone']['Effective Stone Count'].sum()
+        art_qty = group[group['Stone Type'] == 'Synthetic stone']['Effective Stone Count'].sum()
         pearl_qty = group[group['Stone Type'] == 'Pearl']['Effective Stone Count'].sum()
         old_qty = group[group['Stone Type'] == 'Old stone (unspecified)']['Effective Stone Count'].sum()
         
@@ -545,7 +545,7 @@ def main():
             'Shape List': shape_list,
             'Diamond Qty': dia_qty,
             'Natural Stone Qty': nat_qty,
-            'Artificial Stone Qty': art_qty,
+            'Synthetic stone Qty': art_qty,
             'Pearl Qty': pearl_qty,
             'Old/Unspecified Qty': old_qty,
             'Stone Composition': stone_comp,
@@ -628,10 +628,10 @@ def main():
         ("1. EXECUTIVE SUMMARY & MODEL OVERVIEW", font_section),
         ("This workbook provides an end-to-end Stone Complexity scoring model for semi-finished jewelry assemblies (SemiBOM).", font_body),
         ("The scoring framework quantifies technical manufacturing difficulty across four key dimensions: Material, Shape, Count, and Size.", font_body),
-        ("Output grain is strictly 1 row = 1 SemiBOM. Multi-FG BOM paths are normalized without artificial stone duplication.", font_body),
+        ("Output grain is strictly 1 row = 1 SemiBOM. Multi-FG BOM paths are normalized without Synthetic stone duplication.", font_body),
         ("", font_body),
         ("2. KEY SCORING COMPONENTS & PILOT WEIGHTS", font_section),
-        ("• Material Score (25%): Natural break difficulty (Diamond=10, Natural stone=8, Pearl=7, Artificial stone=5, No Stone=0). Multi-stone Semis take MAX.", font_body),
+        ("• Material Score (25%): Natural break difficulty (Diamond=10, Natural stone=8, Pearl=7, Synthetic stone=5, No Stone=0). Multi-stone Semis take MAX.", font_body),
         ("• Shape Component (20%): Blended score = 70% Max Shape Score + 30% Quantity-weighted Average Shape Score across all stones.", font_body),
         ("• Count Score (15%): Natural break threshold scale (0 to 10) based on Total Effective Stone Count on the Semi.", font_body),
         ("• Size Component (40%): Dominant factor reflecting setting delicacy = 75% Largest Size Score + 25% Quantity-weighted Average Size Score.", font_body),
@@ -789,7 +789,7 @@ def main():
         
     mat_rows = [
         ("No Stone", 0, "No stone setting required on Semi assembly"),
-        ("Artificial stone", 5, "Standard synthetic stones (e.g. CZ, synthetic crystal, glass)"),
+        ("Synthetic stone", 5, "Standard synthetic stones (e.g. CZ, synthetic crystal, glass)"),
         ("Pearl", 7, "Organic pearls (Freshwater, Mabe, etc.) requiring delicate setting"),
         ("Natural stone", 8, "Colored gemstones (Emerald, Sapphire, Quartz, Moonstone, Onyx, Topaz)"),
         ("Diamond", 10, "Natural diamonds requiring precision micro-prong / master setting"),
@@ -889,7 +889,7 @@ def main():
         
     ws_pearl.cell(row=14, column=1, value="Pearl Identification & Material Integrity:").font = font_section
     ws_pearl.cell(row=15, column=1, value="• Pearl identification is parsed FIRST before gemstone shapes.").font = font_body
-    ws_pearl.cell(row=16, column=1, value="• Glass/Imitation pearls (e.g. 'Glass Rice Pearl') retain StoneType = 'Artificial stone' while ShapeFamily = 'Pearl'.").font = font_body
+    ws_pearl.cell(row=16, column=1, value="• Glass/Imitation pearls (e.g. 'Glass Rice Pearl') retain StoneType = 'Synthetic stone' while ShapeFamily = 'Pearl'.").font = font_body
     ws_pearl.cell(row=17, column=1, value="• Flag 'PearlLikeMaterialMismatch' is raised for quality traceability.").font = font_body
     auto_fit_columns(ws_pearl)
     
@@ -945,16 +945,16 @@ def main():
         cell.border = thin_border
         
     carat_rows = [
-        ("<= 0.005 ct", 1, "Diamond, Natural stone, Artificial stone", "Micro stones / melee"),
-        ("> 0.005 – 0.015 ct", 2, "Diamond, Natural stone, Artificial stone", "Small melee stones"),
-        ("> 0.015 – 0.035 ct", 3, "Diamond, Natural stone, Artificial stone", "Standard pavé size"),
-        ("> 0.035 – 0.085 ct", 4, "Diamond, Natural stone, Artificial stone", "Medium accent stones"),
-        ("> 0.085 – 0.22 ct", 5, "Diamond, Natural stone, Artificial stone", "Prominent accent stones"),
-        ("> 0.22 – 0.55 ct", 6, "Diamond, Natural stone, Artificial stone", "Quarter to half carat stones"),
-        ("> 0.55 – 1.30 ct", 7, "Diamond, Natural stone, Artificial stone", "Substantial centerpiece size"),
-        ("> 1.30 – 3.00 ct", 8, "Diamond, Natural stone, Artificial stone", "Large centerpiece gemstones"),
-        ("> 3.00 – 6.00 ct", 9, "Diamond, Natural stone, Artificial stone", "Very large gemstones"),
-        ("> 6.00 ct", 10, "Diamond, Natural stone, Artificial stone", "Exceptional / oversized gemstones"),
+        ("<= 0.005 ct", 1, "Diamond, Natural stone, Synthetic stone", "Micro stones / melee"),
+        ("> 0.005 – 0.015 ct", 2, "Diamond, Natural stone, Synthetic stone", "Small melee stones"),
+        ("> 0.015 – 0.035 ct", 3, "Diamond, Natural stone, Synthetic stone", "Standard pavé size"),
+        ("> 0.035 – 0.085 ct", 4, "Diamond, Natural stone, Synthetic stone", "Medium accent stones"),
+        ("> 0.085 – 0.22 ct", 5, "Diamond, Natural stone, Synthetic stone", "Prominent accent stones"),
+        ("> 0.22 – 0.55 ct", 6, "Diamond, Natural stone, Synthetic stone", "Quarter to half carat stones"),
+        ("> 0.55 – 1.30 ct", 7, "Diamond, Natural stone, Synthetic stone", "Substantial centerpiece size"),
+        ("> 1.30 – 3.00 ct", 8, "Diamond, Natural stone, Synthetic stone", "Large centerpiece gemstones"),
+        ("> 3.00 – 6.00 ct", 9, "Diamond, Natural stone, Synthetic stone", "Very large gemstones"),
+        ("> 6.00 ct", 10, "Diamond, Natural stone, Synthetic stone", "Exceptional / oversized gemstones"),
     ]
     for idx, (brk, sc, app, r_note) in enumerate(carat_rows, start=4):
         ws_carat.cell(row=idx, column=1, value=brk).border = thin_border
@@ -1047,7 +1047,7 @@ def main():
     
     headers_summary = [
         "SemiBOM", "Representative FG BOM", "FG Use Count", "Total Stone Count", "Distinct Stone SKU",
-        "Stone Type List", "Shape List", "Diamond Qty", "Natural Stone Qty", "Artificial Stone Qty",
+        "Stone Type List", "Shape List", "Diamond Qty", "Natural Stone Qty", "Synthetic stone Qty",
         "Pearl Qty", "Old/Unspecified Qty", "Stone Composition", "Material Score", "Max Shape Score",
         "Avg Shape Score", "Shape Component", "Count Score", "Largest Size Score", "Avg Size Score",
         "Size Component", "Strict Stone Complexity", "Provisional Stone Complexity", "Score Status",
@@ -1084,7 +1084,7 @@ def main():
         ws_sum.cell(row=row_num, column=7, value=r['Shape List']).border = thin_border
         
         # Quantities
-        for q_idx, col_name in enumerate(['Diamond Qty', 'Natural Stone Qty', 'Artificial Stone Qty', 'Pearl Qty', 'Old/Unspecified Qty'], start=8):
+        for q_idx, col_name in enumerate(['Diamond Qty', 'Natural Stone Qty', 'Synthetic stone Qty', 'Pearl Qty', 'Old/Unspecified Qty'], start=8):
             cell = ws_sum.cell(row=row_num, column=q_idx, value=r[col_name])
             cell.border = thin_border
             cell.alignment = Alignment(horizontal="right")

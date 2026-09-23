@@ -360,265 +360,265 @@
 3070763,Natural stone,IBOC2.3/2.,0,,2,2
 3070767,Natural stone,GR-KRN-01:,0,,2,2
 3070769,Natural stone,YL-SA-02:,0,,1,1
-3080079,Artificial stone,39417 :CZ,1,0.0159,2,0
-3080082,Artificial stone,8094871 :X,1,0.06,1,0
-3080084,Artificial stone,AB-CR-05 :,1,0.33,1,0
-3080085,Artificial stone,AB-CR-06 :,1,0.67,1,0
-3080086,Artificial stone,AB-CR-07 :,1,0.7,4,0
-3080098,Artificial stone,AQBLU-CR-0,1,0.82,1,0
-3080099,Artificial stone,AQBLU-CR-0,1,0.41,2,0
-3080100,Artificial stone,AQ-BLUQ-01,1,0.93,1,0
-3080101,Artificial stone,AQ-BLUQ-02,1,1.0,1,0
-3080102,Artificial stone,AQ-BLUQ-03,1,0.1624,3,0
-3080103,Artificial stone,AQ-BLUQ-04,1,1.697,1,0
-3080107,Artificial stone,AQ-CR-06 :,1,0.6864,1,0
-3080117,Artificial stone,AT-CR-08 :,1,0.224,5,0
-3080133,Artificial stone,AT-CR-26 :,1,1.0,2,0
-3080134,Artificial stone,AT-CR-27 :,1,0.98,3,0
-3080135,Artificial stone,AT-CR-28 :,1,0.61,2,0
-3080137,Artificial stone,AT-CR-30 :,1,0.18,2,0
-3080138,Artificial stone,AT-CR-31 :,1,0.63,2,0
-3080156,Artificial stone,BL-CR-03 :,1,0.374,1,0
-3080177,Artificial stone,BL-CZ-03 :,1,0.0135,7,0
-3080179,Artificial stone,BL-CZ-05 :,1,0.0127,2,0
-3080196,Artificial stone,BL-OP-CR-0,1,0.535,14,0
-3080220,Artificial stone,BLU-CR-16,1,1.692,1,0
-3080221,Artificial stone,BLU-CR-17,0,,1,1
-3080222,Artificial stone,BLU-CR-18,0,,2,2
-3080223,Artificial stone,BLU-CR-19,0,,2,2
-3080225,Artificial stone,BLU-CR-21,1,0.096,2,0
-3080227,Artificial stone,BLU-CR-23,1,0.68,1,0
-3080235,Artificial stone,BLU-CR-31,1,0.36,1,0
-3080238,Artificial stone,BLU-CR-34,1,1.55,1,0
-3080272,Artificial stone,BS-CR-01 :,1,0.965,3,0
-3080288,Artificial stone,CAL-CR-04,1,0.19,1,0
-3080291,Artificial stone,CH-CR-02 :,1,1.06,2,0
-3080292,Artificial stone,CH-CR-03 :,0,,1,1
-3080295,Artificial stone,CH-CZ-02 :,1,0.025,1,0
-3080297,Artificial stone,CH-CZ-07 :,1,1.27,1,0
-3080305,Artificial stone,CH-CZ-27 :,1,0.3774,1,0
-3080306,Artificial stone,CH-CZ-28 :,1,0.15,1,0
-3080316,Artificial stone,CH-CZ-38 :,1,2.81,1,0
-3080327,Artificial stone,CI-CR-02 :,1,0.17,2,0
-3080329,Artificial stone,CI-CR-04 :,1,0.71,1,0
-3080341,Artificial stone,CL-CR-24 :,1,0.97,1,0
-3080342,Artificial stone,CL-CR-25 :,1,0.7,7,0
-3080345,Artificial stone,CL-CR-28 :,1,0.17,2,0
-3080347,Artificial stone,CO-CR-01 :,1,0.31,1,0
-3080349,Artificial stone,CO-CR-03 :,1,1.66,1,0
-3080366,Artificial stone,CZ-02 :Whi,1,0.0954,3,0
-3080367,Artificial stone,CZ-03 :Whi,1,0.012799999999999999,150,0
-3080368,Artificial stone,CZ-04 :Whi,1,0.005999999999999999,239,0
-3080369,Artificial stone,CZ-05 :Whi,1,0.024,25,0
-3080370,Artificial stone,CZ-08 :Whi,1,0.041999999999999996,39,0
-3080371,Artificial stone,CZ-09 :Whi,1,0.0033,78,0
-3080372,Artificial stone,CZ-10 :Whi,1,0.0648,8,0
-3080375,Artificial stone,CZ-102 :Wh,1,0.089,3,0
-3080378,Artificial stone,CZ-105 :Wh,0,,17,17
-3080379,Artificial stone,CZ-106 :Wh,1,0.01,34,0
-3080382,Artificial stone,CZ-109 :Wh,1,0.121,20,0
-3080387,Artificial stone,CZ-113 :Wh,1,0.001,28,0
-3080391,Artificial stone,CZ-117 :Wh,1,0.037,22,0
-3080394,Artificial stone,CZ-12 :Whi,1,0.022,54,0
-3080397,Artificial stone,CZ-122 :Wh,1,0.0014999999999999998,8,0
-3080399,Artificial stone,CZ-124 :Wh,1,0.002,3,0
-3080400,Artificial stone,CZ-16 :Whi,1,0.226,2,0
-3080401,Artificial stone,CZ-17 :Whi,1,0.002,57,0
-3080403,Artificial stone,CZ-20 :Whi,1,0.0025,77,0
-3080404,Artificial stone,CZ-21 :Whi,1,0.046,2,0
-3080412,Artificial stone,CZ-31 :Whi,1,0.1384,2,0
-3080417,Artificial stone,CZ-37: Whi,1,0.02,9,0
-3080419,Artificial stone,CZ-40 :Whi,1,0.018,16,0
-3080420,Artificial stone,CZ-42 :Whi,1,0.018,41,0
-3080422,Artificial stone,CZ-48 :Whi,1,0.0086,223,0
-3080423,Artificial stone,CZ-49 :Whi,1,0.0432,10,0
-3080424,Artificial stone,CZ-50 :Whi,1,0.0572,14,0
-3080428,Artificial stone,CZ-55 :Whi,1,0.202,2,0
-3080429,Artificial stone,CZ-56 :Whi,1,0.059,1,0
-3080433,Artificial stone,CZ-61 :Whi,1,0.002,31,0
-3080434,Artificial stone,CZ-62 :Whi,1,0.7,1,0
-3080435,Artificial stone,CZ-63 :Whi,1,0.002,18,0
-3080436,Artificial stone,CZ-64 :Whi,1,0.0184,50,0
-3080441,Artificial stone,CZ-70 :Whi,1,0.175,3,0
-3080450,Artificial stone,CZ-88 : Wh,1,0.0036999999999999997,38,0
-3080451,Artificial stone,CZ-89 :Cub,1,0.0048,24,0
-3080459,Artificial stone,CZ-99 :Whi,1,0.163,1,0
-3080468,Artificial stone,DSR-CR-01,1,0.68,2,0
-3080470,Artificial stone,DSR-CR-03,1,0.14,2,0
-3080471,Artificial stone,DSRO-CR-01,1,0.8,1,0
-3080472,Artificial stone,DSRO-CR-02,1,0.41,2,0
-3080473,Artificial stone,DSRO-CR-03,1,1.697,1,0
-3080517,Artificial stone,GR-AT-CR-0,1,0.706,12,0
-3080522,Artificial stone,GR-AT-CR-1,1,0.303,1,0
-3080526,Artificial stone,GR-AT-CR-2,1,0.61,1,0
-3080527,Artificial stone,GR-AT-CR-2,1,0.4,1,0
-3080528,Artificial stone,GR-AT-CR-2,1,0.16,3,0
-3080529,Artificial stone,GR-AT-CR-2,1,1.129,1,0
-3080532,Artificial stone,GR-AT-CR-2,1,0.31,2,0
-3080535,Artificial stone,GR-AT-CR-3,1,1.71,2,0
-3080544,Artificial stone,GR-CR-06 :,1,0.54,2,0
-3080545,Artificial stone,GR-CR-07 :,1,0.26,2,0
-3080546,Artificial stone,GR-CR-08 :,1,0.11,2,0
-3080554,Artificial stone,GR-CR-16 :,1,0.69,1,0
-3080581,Artificial stone,GY-CR-19 :,1,0.26,1,0
-3080582,Artificial stone,GY-CR-20 :,1,0.51,1,0
-3080588,Artificial stone,IB-CR-01 :,1,0.77,2,0
-3080594,Artificial stone,IB-CR-15 :,1,0.94,3,0
-3080595,Artificial stone,IB-CR-16 :,1,0.53,1,0
-3080596,Artificial stone,IB-CR-17 :,1,0.19,2,0
-3080597,Artificial stone,IB-CR-18 :,1,1.29,2,0
-3080598,Artificial stone,IB-CR-19 :,1,0.18,2,0
-3080599,Artificial stone,IB-CR-20 :,1,1.905,2,0
-3080617,Artificial stone,IV-CR-05 :,1,0.1456,2,0
-3080619,Artificial stone,IV-CR-07 :,1,0.72,2,0
-3080639,Artificial stone,LAP-CR-03,1,0.169,2,0
-3080641,Artificial stone,LAP-CR-05,1,0.777,2,0
-3080644,Artificial stone,LAQ-CR-08,1,0.16,2,0
-3080645,Artificial stone,LAQ-CR-09,1,0.71,9,0
-3080646,Artificial stone,LAQ-CR-10,1,0.32,7,0
-3080651,Artificial stone,LB-CR-02 :,1,1.03,2,0
-3080653,Artificial stone,LB-CR-04 :,1,1.697,1,0
-3080666,Artificial stone,LE-CR-05 :,1,0.98,1,0
-3080690,Artificial stone,MD-CR-01 :,1,0.23,5,0
-3080691,Artificial stone,MD-CR-02 :,1,0.97,3,0
-3080692,Artificial stone,MD-CR-03 :,1,0.54,1,0
-3080693,Artificial stone,MD-CR-04 :,0,,1,1
-3080694,Artificial stone,MD-CR-05 :,1,0.18,2,0
-3080695,Artificial stone,MD-CR-06 :,1,1.94,2,0
-3080699,Artificial stone,MG-CR-04 :,1,0.7,2,0
-3080700,Artificial stone,MG-CR-05 :,1,0.15,4,0
-3080701,Artificial stone,MG-CR-06 :,1,0.32,7,0
-3080705,Artificial stone,MID-GR-CR-,1,0.939,1,0
-3080706,Artificial stone,ML-AQ-CR-0,1,0.68,2,0
-3080710,Artificial stone,ML-RE-CR-0,1,0.17,1,0
-3080713,Artificial stone,ML-RO-CR-0,1,0.598,9,0
-3080714,Artificial stone,ML-RO-CR-0,1,0.4,7,0
-3080719,Artificial stone,ML-RO-CR-0,1,0.358,1,0
-3080722,Artificial stone,ML-RO-CR-1,1,0.098,3,0
-3080728,Artificial stone,ML-RO-CR-1,1,0.18,2,0
-3080731,Artificial stone,ML-RO-CR-2,1,0.56,2,0
-3080738,Artificial stone,ML-YL-CR-0,1,0.17,1,0
-3080745,Artificial stone,MO-CR-06 :,1,0.97,3,0
-3080750,Artificial stone,MO-CR-11 :,1,0.51,1,0
-3080751,Artificial stone,MO-CR-12 :,1,0.19,2,0
-3080752,Artificial stone,MO-CR-13 :,1,0.182,2,0
-3080753,Artificial stone,MO-CR-14 :,1,1.34,2,0
-3080754,Artificial stone,MO-CR-15 :,1,1.95,2,0
-3080755,Artificial stone,MO-CR-16 :,1,0.7165,1,0
-3080761,Artificial stone,NU-CR-02 :,1,0.58,2,0
-3080764,Artificial stone,NU-CR-05 :,1,0.9635,1,0
-3080765,Artificial stone,OB-CR-01 :,1,0.91,4,0
-3080766,Artificial stone,OB-CR-02 :,1,0.58,2,0
-3080772,Artificial stone,OL-CR-08 :,0,,2,2
-3080773,Artificial stone,OL-CR-09 :,0,,2,2
-3080774,Artificial stone,OL-CR-10 :,1,0.52,2,0
-3080778,Artificial stone,OL-CR-14 :,1,0.93,3,0
-3080779,Artificial stone,OL-CR-15 :,1,0.6,2,0
-3080784,Artificial stone,OL-CR-21 :,1,0.24,1,0
-3080785,Artificial stone,OL-CR-22 :,1,0.98,3,0
-3080786,Artificial stone,OL-CR-23 :,1,0.2,2,0
-3080788,Artificial stone,OL-CR-25 :,1,0.23,3,0
-3080789,Artificial stone,OL-CR-26 :,1,1.95,2,0
-3080793,Artificial stone,OL-CZ-04 :,1,0.22,1,0
-3080812,Artificial stone,PD-CR-06 :,0,,1,1
-3080816,Artificial stone,PD-CZ-03 :,1,0.3774,1,0
-3080817,Artificial stone,PD-CZ-04 :,1,0.0238,1,0
-3080831,Artificial stone,PEA-CR-03,1,0.226,5,0
-3080834,Artificial stone,PEA-CR-06,1,1.15,1,0
-3080835,Artificial stone,PE-CAL-CR-,1,0.36,1,0
-3080838,Artificial stone,PE-CAL-CR-,1,0.15,1,0
-3080841,Artificial stone,PE-CR-03 :,1,0.902,1,0
-3080883,Artificial stone,PL-PU-CR-0,1,0.94,1,0
-3080891,Artificial stone,PU-CR-01 :,0,,2,2
-3080892,Artificial stone,PU-CR-02 :,0,,2,2
-3080893,Artificial stone,PU-CR-03 :,1,0.1,2,0
-3080897,Artificial stone,R9GM00057,1,0.055,7,0
-3080898,Artificial stone,R9GM02150,1,0.016,1,0
-3080910,Artificial stone,RB-CR-15 :,1,0.7,3,0
-3080911,Artificial stone,RB-CR-16 :,1,0.13,2,0
-3080921,Artificial stone,RE-CO-CR-0,1,0.146,2,0
-3080923,Artificial stone,RE-CO-CR-0,1,0.7818,2,0
-3080934,Artificial stone,RO-CR-14 :,1,0.53,1,0
-3080935,Artificial stone,RO-CR-15 :,0,,1,1
-3080936,Artificial stone,RO-CR-16 :,1,0.13,1,0
-3080958,Artificial stone,RU-CR-04 :,1,0.68,1,0
-3080965,Artificial stone,SA-CR-18 :,1,0.73,20,0
-3080967,Artificial stone,SA-CR-20 :,1,0.898,2,0
-3080968,Artificial stone,SA-CR-21 :,1,0.379,1,0
-3080970,Artificial stone,SA-CR-23 :,1,0.0081,1,0
-3080975,Artificial stone,SA-CR-30 :,1,0.55,1,0
-3080976,Artificial stone,SA-CR-31 :,1,0.37,9,0
-3080977,Artificial stone,SA-CR-32 :,1,0.12,4,0
-3080978,Artificial stone,SA-CR-33 :,1,0.08,1,0
-3080980,Artificial stone,SA-CR-35 :,1,0.6,2,0
-3080981,Artificial stone,SA-CR-36 :,1,0.99,1,0
-3080982,Artificial stone,SA-CR-37 :,1,0.42,1,0
-3080987,Artificial stone,SA-CR-42 :,1,1.36,2,0
-3080988,Artificial stone,SA-CR-43 :,1,0.18,2,0
-3080997,Artificial stone,SB-CR-05 :,1,0.4,1,0
-3080999,Artificial stone,SB-CR-07 :,1,0.097,2,0
-3081001,Artificial stone,SB-CR-09 :,1,0.67,1,0
-3081006,Artificial stone,SG-CR-04 :,1,0.77,1,0
-3081018,Artificial stone,SK-CR-06 :,1,0.222,5,0
-3081025,Artificial stone,SK-CR-15 :,1,1.282,1,0
-3081027,Artificial stone,SK-CR-17 :,1,0.288,1,0
-3081030,Artificial stone,SK-CR-21 :,1,0.18,3,0
-3081035,Artificial stone,SM-CR-05 :,1,0.7,11,0
-3081036,Artificial stone,SM-CR-06 :,1,0.74,1,0
-3081037,Artificial stone,SM-CR-07 :,1,0.39,1,0
-3081038,Artificial stone,SM-CR-08 :,1,0.16,3,0
-3081039,Artificial stone,SM-CR-09 :,1,0.1,1,0
-3081040,Artificial stone,SM-CR-10 :,1,0.94,3,0
-3081041,Artificial stone,SM-CR-11 :,1,0.79,1,0
-3081042,Artificial stone,SM-CR-12 :,1,0.57,2,0
-3081043,Artificial stone,SM-CR-13 :,1,0.41,2,0
-3081044,Artificial stone,SM-CR-14 :,1,0.51,1,0
-3081045,Artificial stone,SM-CR-15 :,1,0.19,2,0
-3081046,Artificial stone,SM-CR-16 :,1,1.697,1,0
-3081047,Artificial stone,SM-CR-17 :,1,1.94,2,0
-3081048,Artificial stone,SQ-CR-01 :,1,0.229,5,0
-3081053,Artificial stone,SQ-CR-12 :,0,,2,2
-3081054,Artificial stone,SQ-CR-13 :,0,,2,2
-3081055,Artificial stone,SQ-CR-14 :,1,0.52,1,0
-3081057,Artificial stone,SQ-CR-16 :,1,0.98,3,0
-3081072,Artificial stone,TE-CR-02 :,1,1.245,1,0
-3081078,Artificial stone,TM-CR-01 :,1,0.7,10,0
-3081080,Artificial stone,TM-CR-03 :,1,0.14,2,0
-3081081,Artificial stone,TM-CR-04 :,1,0.41,2,0
-3081082,Artificial stone,TM-CR-05 :,1,0.84,1,0
-3081083,Artificial stone,TM-CR-06 :,0,,1,1
-3081084,Artificial stone,TM-CR-07 :,1,0.16,2,0
-3081085,Artificial stone,TM-CR-08 :,1,1.29,2,0
-3081086,Artificial stone,TM-CR-09 :,1,1.697,1,0
-3081087,Artificial stone,TM-CR-10 :,1,0.933,1,0
-3081093,Artificial stone,TQ-CR-06 :,1,0.734,2,0
-3081094,Artificial stone,TQ-CR-07 :,1,0.148,2,0
-3081095,Artificial stone,TR-CR-07 :,1,1.29,2,0
-3081096,Artificial stone,TR-CR-08 :,1,0.19,2,0
-3081135,Artificial stone,WBLUCZ16 :,1,0.0017000000000000001,2,0
-3081169,Artificial stone,WGRNCZ09 :,1,0.001,2,0
-3081173,Artificial stone,WGRNCZ13 :,1,0.01,2,0
-3081193,Artificial stone,X9GM20071,1,0.38,1,0
-3081204,Artificial stone,R9GM01524,1,0.005,1,0
-3081206,Artificial stone,Green quar,0,,2,2
-3081207,Artificial stone,"G10, round",0,,2,2
-3081208,Artificial stone,"G10, round",0,,2,2
-3081209,Artificial stone,"G10, pear",0,,1,1
-3081210,Artificial stone,"BW453, dro",0,,2,2
-3081211,Artificial stone,MID-GR-CR-,0,,2,2
-3081212,Artificial stone,"LB-CR-05,",0,,2,2
-3081214,Artificial stone,"OL-CR-28,",0,,1,1
-3081215,Artificial stone,PL-PU-CR-0,0,,2,2
-3081216,Artificial stone,BR-CR-04:,0,,2,2
-3081217,Artificial stone,GRQ-14: Gr,0,,3,3
-3081219,Artificial stone,PE-CAL-CR-,0,,1,1
-3081220,Artificial stone,CH-MN-13:,0,,1,1
-3081221,Artificial stone,PA-MN-45:,0,,1,1
-3081222,Artificial stone,RO-CR-17:,0,,1,1
-3081223,Artificial stone,MD-CR-07:,0,,2,2
-3081225,Artificial stone,CZ-125: Wh,0,,14,14
-3081226,Artificial stone,CZ-130: Wh,0,,1,1
-3081227,Artificial stone,CZ-126: Wh,0,,8,8
+3080079,Synthetic stone,39417 :CZ,1,0.0159,2,0
+3080082,Synthetic stone,8094871 :X,1,0.06,1,0
+3080084,Synthetic stone,AB-CR-05 :,1,0.33,1,0
+3080085,Synthetic stone,AB-CR-06 :,1,0.67,1,0
+3080086,Synthetic stone,AB-CR-07 :,1,0.7,4,0
+3080098,Synthetic stone,AQBLU-CR-0,1,0.82,1,0
+3080099,Synthetic stone,AQBLU-CR-0,1,0.41,2,0
+3080100,Synthetic stone,AQ-BLUQ-01,1,0.93,1,0
+3080101,Synthetic stone,AQ-BLUQ-02,1,1.0,1,0
+3080102,Synthetic stone,AQ-BLUQ-03,1,0.1624,3,0
+3080103,Synthetic stone,AQ-BLUQ-04,1,1.697,1,0
+3080107,Synthetic stone,AQ-CR-06 :,1,0.6864,1,0
+3080117,Synthetic stone,AT-CR-08 :,1,0.224,5,0
+3080133,Synthetic stone,AT-CR-26 :,1,1.0,2,0
+3080134,Synthetic stone,AT-CR-27 :,1,0.98,3,0
+3080135,Synthetic stone,AT-CR-28 :,1,0.61,2,0
+3080137,Synthetic stone,AT-CR-30 :,1,0.18,2,0
+3080138,Synthetic stone,AT-CR-31 :,1,0.63,2,0
+3080156,Synthetic stone,BL-CR-03 :,1,0.374,1,0
+3080177,Synthetic stone,BL-CZ-03 :,1,0.0135,7,0
+3080179,Synthetic stone,BL-CZ-05 :,1,0.0127,2,0
+3080196,Synthetic stone,BL-OP-CR-0,1,0.535,14,0
+3080220,Synthetic stone,BLU-CR-16,1,1.692,1,0
+3080221,Synthetic stone,BLU-CR-17,0,,1,1
+3080222,Synthetic stone,BLU-CR-18,0,,2,2
+3080223,Synthetic stone,BLU-CR-19,0,,2,2
+3080225,Synthetic stone,BLU-CR-21,1,0.096,2,0
+3080227,Synthetic stone,BLU-CR-23,1,0.68,1,0
+3080235,Synthetic stone,BLU-CR-31,1,0.36,1,0
+3080238,Synthetic stone,BLU-CR-34,1,1.55,1,0
+3080272,Synthetic stone,BS-CR-01 :,1,0.965,3,0
+3080288,Synthetic stone,CAL-CR-04,1,0.19,1,0
+3080291,Synthetic stone,CH-CR-02 :,1,1.06,2,0
+3080292,Synthetic stone,CH-CR-03 :,0,,1,1
+3080295,Synthetic stone,CH-CZ-02 :,1,0.025,1,0
+3080297,Synthetic stone,CH-CZ-07 :,1,1.27,1,0
+3080305,Synthetic stone,CH-CZ-27 :,1,0.3774,1,0
+3080306,Synthetic stone,CH-CZ-28 :,1,0.15,1,0
+3080316,Synthetic stone,CH-CZ-38 :,1,2.81,1,0
+3080327,Synthetic stone,CI-CR-02 :,1,0.17,2,0
+3080329,Synthetic stone,CI-CR-04 :,1,0.71,1,0
+3080341,Synthetic stone,CL-CR-24 :,1,0.97,1,0
+3080342,Synthetic stone,CL-CR-25 :,1,0.7,7,0
+3080345,Synthetic stone,CL-CR-28 :,1,0.17,2,0
+3080347,Synthetic stone,CO-CR-01 :,1,0.31,1,0
+3080349,Synthetic stone,CO-CR-03 :,1,1.66,1,0
+3080366,Synthetic stone,CZ-02 :Whi,1,0.0954,3,0
+3080367,Synthetic stone,CZ-03 :Whi,1,0.012799999999999999,150,0
+3080368,Synthetic stone,CZ-04 :Whi,1,0.005999999999999999,239,0
+3080369,Synthetic stone,CZ-05 :Whi,1,0.024,25,0
+3080370,Synthetic stone,CZ-08 :Whi,1,0.041999999999999996,39,0
+3080371,Synthetic stone,CZ-09 :Whi,1,0.0033,78,0
+3080372,Synthetic stone,CZ-10 :Whi,1,0.0648,8,0
+3080375,Synthetic stone,CZ-102 :Wh,1,0.089,3,0
+3080378,Synthetic stone,CZ-105 :Wh,0,,17,17
+3080379,Synthetic stone,CZ-106 :Wh,1,0.01,34,0
+3080382,Synthetic stone,CZ-109 :Wh,1,0.121,20,0
+3080387,Synthetic stone,CZ-113 :Wh,1,0.001,28,0
+3080391,Synthetic stone,CZ-117 :Wh,1,0.037,22,0
+3080394,Synthetic stone,CZ-12 :Whi,1,0.022,54,0
+3080397,Synthetic stone,CZ-122 :Wh,1,0.0014999999999999998,8,0
+3080399,Synthetic stone,CZ-124 :Wh,1,0.002,3,0
+3080400,Synthetic stone,CZ-16 :Whi,1,0.226,2,0
+3080401,Synthetic stone,CZ-17 :Whi,1,0.002,57,0
+3080403,Synthetic stone,CZ-20 :Whi,1,0.0025,77,0
+3080404,Synthetic stone,CZ-21 :Whi,1,0.046,2,0
+3080412,Synthetic stone,CZ-31 :Whi,1,0.1384,2,0
+3080417,Synthetic stone,CZ-37: Whi,1,0.02,9,0
+3080419,Synthetic stone,CZ-40 :Whi,1,0.018,16,0
+3080420,Synthetic stone,CZ-42 :Whi,1,0.018,41,0
+3080422,Synthetic stone,CZ-48 :Whi,1,0.0086,223,0
+3080423,Synthetic stone,CZ-49 :Whi,1,0.0432,10,0
+3080424,Synthetic stone,CZ-50 :Whi,1,0.0572,14,0
+3080428,Synthetic stone,CZ-55 :Whi,1,0.202,2,0
+3080429,Synthetic stone,CZ-56 :Whi,1,0.059,1,0
+3080433,Synthetic stone,CZ-61 :Whi,1,0.002,31,0
+3080434,Synthetic stone,CZ-62 :Whi,1,0.7,1,0
+3080435,Synthetic stone,CZ-63 :Whi,1,0.002,18,0
+3080436,Synthetic stone,CZ-64 :Whi,1,0.0184,50,0
+3080441,Synthetic stone,CZ-70 :Whi,1,0.175,3,0
+3080450,Synthetic stone,CZ-88 : Wh,1,0.0036999999999999997,38,0
+3080451,Synthetic stone,CZ-89 :Cub,1,0.0048,24,0
+3080459,Synthetic stone,CZ-99 :Whi,1,0.163,1,0
+3080468,Synthetic stone,DSR-CR-01,1,0.68,2,0
+3080470,Synthetic stone,DSR-CR-03,1,0.14,2,0
+3080471,Synthetic stone,DSRO-CR-01,1,0.8,1,0
+3080472,Synthetic stone,DSRO-CR-02,1,0.41,2,0
+3080473,Synthetic stone,DSRO-CR-03,1,1.697,1,0
+3080517,Synthetic stone,GR-AT-CR-0,1,0.706,12,0
+3080522,Synthetic stone,GR-AT-CR-1,1,0.303,1,0
+3080526,Synthetic stone,GR-AT-CR-2,1,0.61,1,0
+3080527,Synthetic stone,GR-AT-CR-2,1,0.4,1,0
+3080528,Synthetic stone,GR-AT-CR-2,1,0.16,3,0
+3080529,Synthetic stone,GR-AT-CR-2,1,1.129,1,0
+3080532,Synthetic stone,GR-AT-CR-2,1,0.31,2,0
+3080535,Synthetic stone,GR-AT-CR-3,1,1.71,2,0
+3080544,Synthetic stone,GR-CR-06 :,1,0.54,2,0
+3080545,Synthetic stone,GR-CR-07 :,1,0.26,2,0
+3080546,Synthetic stone,GR-CR-08 :,1,0.11,2,0
+3080554,Synthetic stone,GR-CR-16 :,1,0.69,1,0
+3080581,Synthetic stone,GY-CR-19 :,1,0.26,1,0
+3080582,Synthetic stone,GY-CR-20 :,1,0.51,1,0
+3080588,Synthetic stone,IB-CR-01 :,1,0.77,2,0
+3080594,Synthetic stone,IB-CR-15 :,1,0.94,3,0
+3080595,Synthetic stone,IB-CR-16 :,1,0.53,1,0
+3080596,Synthetic stone,IB-CR-17 :,1,0.19,2,0
+3080597,Synthetic stone,IB-CR-18 :,1,1.29,2,0
+3080598,Synthetic stone,IB-CR-19 :,1,0.18,2,0
+3080599,Synthetic stone,IB-CR-20 :,1,1.905,2,0
+3080617,Synthetic stone,IV-CR-05 :,1,0.1456,2,0
+3080619,Synthetic stone,IV-CR-07 :,1,0.72,2,0
+3080639,Synthetic stone,LAP-CR-03,1,0.169,2,0
+3080641,Synthetic stone,LAP-CR-05,1,0.777,2,0
+3080644,Synthetic stone,LAQ-CR-08,1,0.16,2,0
+3080645,Synthetic stone,LAQ-CR-09,1,0.71,9,0
+3080646,Synthetic stone,LAQ-CR-10,1,0.32,7,0
+3080651,Synthetic stone,LB-CR-02 :,1,1.03,2,0
+3080653,Synthetic stone,LB-CR-04 :,1,1.697,1,0
+3080666,Synthetic stone,LE-CR-05 :,1,0.98,1,0
+3080690,Synthetic stone,MD-CR-01 :,1,0.23,5,0
+3080691,Synthetic stone,MD-CR-02 :,1,0.97,3,0
+3080692,Synthetic stone,MD-CR-03 :,1,0.54,1,0
+3080693,Synthetic stone,MD-CR-04 :,0,,1,1
+3080694,Synthetic stone,MD-CR-05 :,1,0.18,2,0
+3080695,Synthetic stone,MD-CR-06 :,1,1.94,2,0
+3080699,Synthetic stone,MG-CR-04 :,1,0.7,2,0
+3080700,Synthetic stone,MG-CR-05 :,1,0.15,4,0
+3080701,Synthetic stone,MG-CR-06 :,1,0.32,7,0
+3080705,Synthetic stone,MID-GR-CR-,1,0.939,1,0
+3080706,Synthetic stone,ML-AQ-CR-0,1,0.68,2,0
+3080710,Synthetic stone,ML-RE-CR-0,1,0.17,1,0
+3080713,Synthetic stone,ML-RO-CR-0,1,0.598,9,0
+3080714,Synthetic stone,ML-RO-CR-0,1,0.4,7,0
+3080719,Synthetic stone,ML-RO-CR-0,1,0.358,1,0
+3080722,Synthetic stone,ML-RO-CR-1,1,0.098,3,0
+3080728,Synthetic stone,ML-RO-CR-1,1,0.18,2,0
+3080731,Synthetic stone,ML-RO-CR-2,1,0.56,2,0
+3080738,Synthetic stone,ML-YL-CR-0,1,0.17,1,0
+3080745,Synthetic stone,MO-CR-06 :,1,0.97,3,0
+3080750,Synthetic stone,MO-CR-11 :,1,0.51,1,0
+3080751,Synthetic stone,MO-CR-12 :,1,0.19,2,0
+3080752,Synthetic stone,MO-CR-13 :,1,0.182,2,0
+3080753,Synthetic stone,MO-CR-14 :,1,1.34,2,0
+3080754,Synthetic stone,MO-CR-15 :,1,1.95,2,0
+3080755,Synthetic stone,MO-CR-16 :,1,0.7165,1,0
+3080761,Synthetic stone,NU-CR-02 :,1,0.58,2,0
+3080764,Synthetic stone,NU-CR-05 :,1,0.9635,1,0
+3080765,Synthetic stone,OB-CR-01 :,1,0.91,4,0
+3080766,Synthetic stone,OB-CR-02 :,1,0.58,2,0
+3080772,Synthetic stone,OL-CR-08 :,0,,2,2
+3080773,Synthetic stone,OL-CR-09 :,0,,2,2
+3080774,Synthetic stone,OL-CR-10 :,1,0.52,2,0
+3080778,Synthetic stone,OL-CR-14 :,1,0.93,3,0
+3080779,Synthetic stone,OL-CR-15 :,1,0.6,2,0
+3080784,Synthetic stone,OL-CR-21 :,1,0.24,1,0
+3080785,Synthetic stone,OL-CR-22 :,1,0.98,3,0
+3080786,Synthetic stone,OL-CR-23 :,1,0.2,2,0
+3080788,Synthetic stone,OL-CR-25 :,1,0.23,3,0
+3080789,Synthetic stone,OL-CR-26 :,1,1.95,2,0
+3080793,Synthetic stone,OL-CZ-04 :,1,0.22,1,0
+3080812,Synthetic stone,PD-CR-06 :,0,,1,1
+3080816,Synthetic stone,PD-CZ-03 :,1,0.3774,1,0
+3080817,Synthetic stone,PD-CZ-04 :,1,0.0238,1,0
+3080831,Synthetic stone,PEA-CR-03,1,0.226,5,0
+3080834,Synthetic stone,PEA-CR-06,1,1.15,1,0
+3080835,Synthetic stone,PE-CAL-CR-,1,0.36,1,0
+3080838,Synthetic stone,PE-CAL-CR-,1,0.15,1,0
+3080841,Synthetic stone,PE-CR-03 :,1,0.902,1,0
+3080883,Synthetic stone,PL-PU-CR-0,1,0.94,1,0
+3080891,Synthetic stone,PU-CR-01 :,0,,2,2
+3080892,Synthetic stone,PU-CR-02 :,0,,2,2
+3080893,Synthetic stone,PU-CR-03 :,1,0.1,2,0
+3080897,Synthetic stone,R9GM00057,1,0.055,7,0
+3080898,Synthetic stone,R9GM02150,1,0.016,1,0
+3080910,Synthetic stone,RB-CR-15 :,1,0.7,3,0
+3080911,Synthetic stone,RB-CR-16 :,1,0.13,2,0
+3080921,Synthetic stone,RE-CO-CR-0,1,0.146,2,0
+3080923,Synthetic stone,RE-CO-CR-0,1,0.7818,2,0
+3080934,Synthetic stone,RO-CR-14 :,1,0.53,1,0
+3080935,Synthetic stone,RO-CR-15 :,0,,1,1
+3080936,Synthetic stone,RO-CR-16 :,1,0.13,1,0
+3080958,Synthetic stone,RU-CR-04 :,1,0.68,1,0
+3080965,Synthetic stone,SA-CR-18 :,1,0.73,20,0
+3080967,Synthetic stone,SA-CR-20 :,1,0.898,2,0
+3080968,Synthetic stone,SA-CR-21 :,1,0.379,1,0
+3080970,Synthetic stone,SA-CR-23 :,1,0.0081,1,0
+3080975,Synthetic stone,SA-CR-30 :,1,0.55,1,0
+3080976,Synthetic stone,SA-CR-31 :,1,0.37,9,0
+3080977,Synthetic stone,SA-CR-32 :,1,0.12,4,0
+3080978,Synthetic stone,SA-CR-33 :,1,0.08,1,0
+3080980,Synthetic stone,SA-CR-35 :,1,0.6,2,0
+3080981,Synthetic stone,SA-CR-36 :,1,0.99,1,0
+3080982,Synthetic stone,SA-CR-37 :,1,0.42,1,0
+3080987,Synthetic stone,SA-CR-42 :,1,1.36,2,0
+3080988,Synthetic stone,SA-CR-43 :,1,0.18,2,0
+3080997,Synthetic stone,SB-CR-05 :,1,0.4,1,0
+3080999,Synthetic stone,SB-CR-07 :,1,0.097,2,0
+3081001,Synthetic stone,SB-CR-09 :,1,0.67,1,0
+3081006,Synthetic stone,SG-CR-04 :,1,0.77,1,0
+3081018,Synthetic stone,SK-CR-06 :,1,0.222,5,0
+3081025,Synthetic stone,SK-CR-15 :,1,1.282,1,0
+3081027,Synthetic stone,SK-CR-17 :,1,0.288,1,0
+3081030,Synthetic stone,SK-CR-21 :,1,0.18,3,0
+3081035,Synthetic stone,SM-CR-05 :,1,0.7,11,0
+3081036,Synthetic stone,SM-CR-06 :,1,0.74,1,0
+3081037,Synthetic stone,SM-CR-07 :,1,0.39,1,0
+3081038,Synthetic stone,SM-CR-08 :,1,0.16,3,0
+3081039,Synthetic stone,SM-CR-09 :,1,0.1,1,0
+3081040,Synthetic stone,SM-CR-10 :,1,0.94,3,0
+3081041,Synthetic stone,SM-CR-11 :,1,0.79,1,0
+3081042,Synthetic stone,SM-CR-12 :,1,0.57,2,0
+3081043,Synthetic stone,SM-CR-13 :,1,0.41,2,0
+3081044,Synthetic stone,SM-CR-14 :,1,0.51,1,0
+3081045,Synthetic stone,SM-CR-15 :,1,0.19,2,0
+3081046,Synthetic stone,SM-CR-16 :,1,1.697,1,0
+3081047,Synthetic stone,SM-CR-17 :,1,1.94,2,0
+3081048,Synthetic stone,SQ-CR-01 :,1,0.229,5,0
+3081053,Synthetic stone,SQ-CR-12 :,0,,2,2
+3081054,Synthetic stone,SQ-CR-13 :,0,,2,2
+3081055,Synthetic stone,SQ-CR-14 :,1,0.52,1,0
+3081057,Synthetic stone,SQ-CR-16 :,1,0.98,3,0
+3081072,Synthetic stone,TE-CR-02 :,1,1.245,1,0
+3081078,Synthetic stone,TM-CR-01 :,1,0.7,10,0
+3081080,Synthetic stone,TM-CR-03 :,1,0.14,2,0
+3081081,Synthetic stone,TM-CR-04 :,1,0.41,2,0
+3081082,Synthetic stone,TM-CR-05 :,1,0.84,1,0
+3081083,Synthetic stone,TM-CR-06 :,0,,1,1
+3081084,Synthetic stone,TM-CR-07 :,1,0.16,2,0
+3081085,Synthetic stone,TM-CR-08 :,1,1.29,2,0
+3081086,Synthetic stone,TM-CR-09 :,1,1.697,1,0
+3081087,Synthetic stone,TM-CR-10 :,1,0.933,1,0
+3081093,Synthetic stone,TQ-CR-06 :,1,0.734,2,0
+3081094,Synthetic stone,TQ-CR-07 :,1,0.148,2,0
+3081095,Synthetic stone,TR-CR-07 :,1,1.29,2,0
+3081096,Synthetic stone,TR-CR-08 :,1,0.19,2,0
+3081135,Synthetic stone,WBLUCZ16 :,1,0.0017000000000000001,2,0
+3081169,Synthetic stone,WGRNCZ09 :,1,0.001,2,0
+3081173,Synthetic stone,WGRNCZ13 :,1,0.01,2,0
+3081193,Synthetic stone,X9GM20071,1,0.38,1,0
+3081204,Synthetic stone,R9GM01524,1,0.005,1,0
+3081206,Synthetic stone,Green quar,0,,2,2
+3081207,Synthetic stone,"G10, round",0,,2,2
+3081208,Synthetic stone,"G10, round",0,,2,2
+3081209,Synthetic stone,"G10, pear",0,,1,1
+3081210,Synthetic stone,"BW453, dro",0,,2,2
+3081211,Synthetic stone,MID-GR-CR-,0,,2,2
+3081212,Synthetic stone,"LB-CR-05,",0,,2,2
+3081214,Synthetic stone,"OL-CR-28,",0,,1,1
+3081215,Synthetic stone,PL-PU-CR-0,0,,2,2
+3081216,Synthetic stone,BR-CR-04:,0,,2,2
+3081217,Synthetic stone,GRQ-14: Gr,0,,3,3
+3081219,Synthetic stone,PE-CAL-CR-,0,,1,1
+3081220,Synthetic stone,CH-MN-13:,0,,1,1
+3081221,Synthetic stone,PA-MN-45:,0,,1,1
+3081222,Synthetic stone,RO-CR-17:,0,,1,1
+3081223,Synthetic stone,MD-CR-07:,0,,2,2
+3081225,Synthetic stone,CZ-125: Wh,0,,14,14
+3081226,Synthetic stone,CZ-130: Wh,0,,1,1
+3081227,Synthetic stone,CZ-126: Wh,0,,8,8
 3130187,Old stone (unspecified),CL-09 :Cle,1,2.15,1,0
 3130483,Old stone (unspecified),REX-11 :Re,1,0.005,1,0
 3130532,Old stone (unspecified),SQ-40 :Smo,0,,1,1
