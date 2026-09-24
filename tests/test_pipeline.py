@@ -128,11 +128,21 @@ class Rules(unittest.TestCase):
         self.assertTrue(n.loc[n[GROUP].eq("G2"),"ExtrapolationFlag"].iloc[0])
 
     def test_factors_missing_not_zero(self):
-        f=pd.DataFrame([{"Item Number":"I","Process":"P","Factor":factor,"Score":5,"Evidence":"E","Scorer":"S","Approver":"A","Version":"v1","Approved":True,"DataQualityStatus":"Valid"} for factor in FACTOR_WEIGHTS])
+        f=pd.DataFrame([{"Item Number":"I","Process":"P","Factor":factor,"Score":5,"Evidence":"E","Scorer":"S","Approver":"A","Version":"v1","Approved":True,"DataQualityStatus":"Valid","Method":"MODEL_ESTIMATE" if factor=="Quality" else "FIXED_INPUT","ConfidencePct":0.8 if factor=="Quality" else np.nan,"ConfidenceStatus":"ESTIMATED_VALIDATED" if factor=="Quality" else "NOT_APPLICABLE"} for factor in FACTOR_WEIGHTS])
         self.assertEqual(technical_complexity(f)["Final Technical Complexity"].iloc[0],5)
         f.loc[0,"Score"]=np.nan
         self.assertTrue(np.isnan(technical_complexity(f)["Final Technical Complexity"].iloc[0]))
         self.assertEqual(confidence_tier(3,5)[0],"Low")
+
+    def test_modeled_factor_needs_validated_confidence(self):
+        f=pd.DataFrame([{"Item Number":"I","Process":"P","Factor":factor,"Score":5,"Evidence":"E","Scorer":"S","Approver":"A","Version":"v1","Approved":True,"DataQualityStatus":"Valid","Method":"MODEL_ESTIMATE" if factor in {"Quality","Learning"} else "FIXED_INPUT","ConfidencePct":0.8 if factor=="Quality" else np.nan,"ConfidenceStatus":"ESTIMATED_VALIDATED" if factor=="Quality" else "NOT_ESTIMATED"} for factor in FACTOR_WEIGHTS])
+        result=technical_complexity(f).iloc[0]
+        self.assertTrue(np.isnan(result["Final Technical Complexity"]))
+        self.assertIn("Model confidence missing or unvalidated",result.FactorGate)
+        f.loc[f.Factor.eq("Learning"),["ConfidencePct","ConfidenceStatus"]]=[0.7,"ESTIMATED_VALIDATED"]
+        self.assertEqual(technical_complexity(f)["Final Technical Complexity"].iloc[0],5)
+        f.loc[f.Factor.eq("Quality"),"ConfidenceStatus"]="CONDITIONAL_DIAGNOSTIC"
+        self.assertTrue(np.isnan(technical_complexity(f)["Final Technical Complexity"].iloc[0]))
 
     def test_one_worker_model_finite(self):
         d=pd.DataFrame({"Worker":["A"]*3,"Item Number":["I"]*3,"log_time":[1.,1.,1.]})

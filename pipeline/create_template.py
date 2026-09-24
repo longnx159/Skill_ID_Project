@@ -54,6 +54,9 @@ SCHEMAS = {
         ("Process","Required exact Process."),
         ("Factor","Exactly Quality, PartMechanism, MaterialDesignProcess, Stone, Learning. One each per Item/Process."),
         ("Score","Number 0-10. Missing remains blank. Stone=0 requires evidence of no stone."),
+        ("Method","FIXED_INPUT for an approved source/rubric value; MODEL_ESTIMATE for a fitted factor. Quality is always model-derived."),
+        ("ConfidencePct","For modeled factors, numeric 0-1 probability/precision percentage from that factor's documented uncertainty method. Leave blank for fixed inputs."),
+        ("ConfidenceStatus","ESTIMATED_VALIDATED only after model confidence has been validated; diagnostic percentages cannot release the final score."),
         ("Evidence","Required source/specification or reviewed evidence reference."),
         ("Scorer","Required reviewer who assigned the factor score."),
         ("Approver","Required approving authority."),
@@ -130,22 +133,26 @@ def create_template(path=Path("Mau_nhap_du_lieu_Skill_ID.xlsx")):
             dictionary.append([name,header,definition])
             ws.column_dimensions[letter].width=min(max(len(header)+3,21),35)
             is_date=header in ["RAF Month","QC_Start","QC_Stop","Worker_Start","Worker_Stop","EffectiveFrom","AssignmentTime"]
-            is_number=header in ["Qty Doing","Total Actual Hours","QCQty","ExpectedQty","RoundNo","Score","Planner Verified Skill Level","HandedFailQty","RecoveredQty"]
+            is_number=header in ["Qty Doing","Total Actual Hours","QCQty","ExpectedQty","RoundNo","Score","ConfidencePct","Planner Verified Skill Level","HandedFailQty","RecoveredQty"]
             for row in range(2,102):
                 cell=ws.cell(row,column)
                 cell.font=Font(name="Arial",size=11)
-                cell.number_format="yyyy-mm-dd hh:mm:ss" if is_date else ("0.000" if is_number else "@")
+                cell.number_format="yyyy-mm-dd hh:mm:ss" if is_date else ("0.0%" if header=="ConfidencePct" else "0.000" if is_number else "@")
             options=None
             if header=="QCStatus": options='"Pass,Fail"'
             elif header=="Factor": options='"Quality,PartMechanism,MaterialDesignProcess,Stone,Learning"'
             elif header in ["Approved","FollowedTop3"]: options='"TRUE,FALSE"'
             elif header=="Arm": options='"Control,Intervention"'
             elif header=="DataQualityStatus": options='"Valid,Pending,Exception"'
+            elif header=="Method": options='"FIXED_INPUT,MODEL_ESTIMATE"'
+            elif header=="ConfidenceStatus": options='"ESTIMATED_VALIDATED,CONDITIONAL_DIAGNOSTIC,NOT_ESTIMATED,NOT_APPLICABLE"'
             validation=None
             if options:
                 validation=DataValidation(type="list",formula1=options,allow_blank=True)
             elif header in ["Score","Planner Verified Skill Level"]:
                 validation=DataValidation(type="decimal",operator="between",formula1=0,formula2=10,allow_blank=True)
+            elif header=="ConfidencePct":
+                validation=DataValidation(type="decimal",operator="between",formula1=0,formula2=1,allow_blank=True)
             elif header in ["RoundNo","QCQty","ExpectedQty"]:
                 validation=DataValidation(type="whole",operator="greaterThanOrEqual",formula1=0 if header=="QCQty" else 1,allow_blank=True)
             elif is_number:

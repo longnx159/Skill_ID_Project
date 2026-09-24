@@ -26,6 +26,16 @@ The core run needs only pandas, NumPy and openpyxl. Existing optional legacy cha
 
 For the exact versions used in current verification, install `requirements-lock.txt` instead. Legacy `.xls` input requires the separate `xlrd` reader; the preflight reports a clear error when it is unavailable. Converting to `.xlsx` avoids that optional dependency.
 
+### One row per Semi item
+
+After generating the BOM distribution and completing a core pipeline run, export an item-level English diagnostic report:
+
+```powershell
+python -B -m pipeline.semi_item_report --semi-dir outputs/semi_distribution_20260916_run5
+```
+
+By default this resolves `outputs/runs/latest_successful.json`; pass `--core-run <run-directory>` to pin a particular completed run. The command creates a unique directory under `outputs/semi_item_reports/` containing `semi_item_report.csv`, an English Markdown and JSON summary, and frozen source snapshots. The CSV has one row per SemiBOM, including BOM-blocked items. A blank `FinalTechnicalComplexity` means no approved score, not zero. Mechanical part counts include only direct `SM_Casting` and `SM_ACJ` components with `PCS` units. The source BOM distribution is dated; regenerate it when the BOM or Item Master changes.
+
 ## 2. Fill the input folders
 
 Use [input_data](input_data/) as the only data entry area. Each subfolder contains a blank single-sheet `_template.xlsx` with the correct columns. Open that file and enter rows from row 2. For monthly or incremental data, add another `.xlsx`, `.xls` or `.csv` file to the same subfolder. The pipeline combines all files in that subfolder.

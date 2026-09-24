@@ -25,6 +25,18 @@ def technical_complexity(factors):
             reason.append("Pending factor approval")
         if not g.DataQualityStatus.eq("Valid").all():
             reason.append("Data quality exception")
+        # Quality always comes from a fitted QC model. Other factors may be
+        # source/rubric values, or model estimates if explicitly marked so.
+        method = g.get("Method", pd.Series("", index=g.index)).astype(str).str.strip().str.upper()
+        modeled = g.Factor.eq("Quality") | method.eq("MODEL_ESTIMATE")
+        if modeled.any():
+            if "ConfidencePct" not in g or "ConfidenceStatus" not in g:
+                reason.append("Missing model confidence fields")
+            else:
+                confidence = pd.to_numeric(g.loc[modeled, "ConfidencePct"], errors="coerce")
+                status = g.loc[modeled, "ConfidenceStatus"].astype(str).str.strip().str.upper()
+                if not confidence.between(0, 1).all() or not status.eq("ESTIMATED_VALIDATED").all():
+                    reason.append("Model confidence missing or unvalidated")
         rows.append({"Item Number": item, "Process": process,
             "Final Technical Complexity": np.nan if reason else float((scores*g.Factor.map(FACTOR_WEIGHTS)).sum()),
             "FactorGate": "; ".join(reason) or "All five factors approved"})

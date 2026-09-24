@@ -35,6 +35,14 @@ During export the folder is named `artifacts.partial`. A failed run may retain p
 
 ## Input and model policy
 
+The optional per-Semi item export runs after a completed core run:
+
+```powershell
+python -B -m pipeline.semi_item_report --semi-dir outputs/semi_distribution_20260916_run5
+```
+
+It resolves the latest completed core run by default and writes an isolated `outputs/semi_item_reports/run_*/semi_item_report.csv` with one row per SemiBOM. Pass `--core-run` for an explicit core run, especially when comparing snapshots. The export verifies the core model artifact hash, freezes its input CSVs, and marks blocked, unmapped, and unapproved items. It does not turn diagnostic Rasch estimates into approved final scores.
+
 - CLI, PowerShell, and Python API retain all production months by default. `--exclude-month=2026-07` explicitly excludes that production month.
 - QC separately excludes source month July 2026 by default. The source timestamp is `CreatedDateTime` when supplied, otherwise canonical `QC_Start`. `--qc-exclude-month=` disables this exclusion. Later rows for the same WO remain subject to the existing round-reconciliation rules.
 - Source times are interpreted as local Asia/Saigon time. Explicit timezone-aware cutoff values are converted to local time before comparison. A date-only cutoff means midnight, not end of day.

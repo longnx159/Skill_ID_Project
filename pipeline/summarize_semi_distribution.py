@@ -9,8 +9,11 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import shutil
 
 import pandas as pd
+
+from .run_reporting import file_hash
 
 
 PART_BINS = [-0.1, 0, 1, 2, 4, 9, 19, 49, float("inf")]
@@ -155,7 +158,12 @@ def run(bom_output_dir: Path, bom_source_dir: Path, item_master_path: Path, outp
     _required(features, {"SourceFile", "FG BOM", "SemiBOM", "SemiItem", "Status", "DirectPartCountPCS", "LeafPartCountPCS", "StoneCount"}, feature_path)
     _required(parts, {"SourceFile", "FG BOM", "SemiBOM", "ItemGroup"}, part_path)
     _required(stones, {"SourceFile", "FG BOM", "SemiBOM", "StoneType"}, stone_path)
-    _required(master, {"Item Number", "Process", "Material", "Product Type"}, item_master_path)
+    _required(master, {"Item Number", "Process", "Product Type"}, item_master_path)
+    material_supplied = "Material" in master.columns
+    if not material_supplied:
+        # A missing source factor remains unknown; BOM-derived material groups
+        # are still measured separately from this Item Master attribute.
+        master["Material"] = pd.NA
 
     master = master[["Item Number", "Process", "Material", "Product Type"]].copy()
     master["Item Number"] = master["Item Number"].str.strip()
@@ -228,6 +236,10 @@ def run(bom_output_dir: Path, bom_source_dir: Path, item_master_path: Path, outp
     complexity_inputs = usable[detail_columns].sort_values("SemiBOM", kind="stable")
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    if feature_path.resolve() != (output_dir / "semi_bom_features.csv").resolve():
+        shutil.copy2(feature_path, output_dir / "semi_bom_features.csv")
+    if file_hash(feature_path) != file_hash(output_dir / "semi_bom_features.csv"):
+        raise ValueError("BOM feature snapshot changed during copy")
     part_distribution.to_csv(output_dir / "semi_part_distribution.csv", index=False, encoding="utf-8-sig")
     material_distribution.to_csv(output_dir / "semi_material_group_distribution.csv", index=False, encoding="utf-8-sig")
     material_count_distribution.to_csv(output_dir / "semi_material_group_count_distribution.csv", index=False, encoding="utf-8-sig")
@@ -242,6 +254,8 @@ def run(bom_output_dir: Path, bom_source_dir: Path, item_master_path: Path, outp
         "semi_item_master_match_pct": round(float(usable["Process"].ne("Unmapped").mean() * 100), 2),
         "multi_context_semi_boms": int(selected["ContextCount"].gt(1).sum()),
         "mechanical_assembly_bom_lines": mechanical_line_count,
+        "item_master_material_supplied": material_supplied,
+        "bom_feature_sha256": file_hash(feature_path),
         "outputs": [
             "semi_part_distribution.csv",
             "semi_material_group_distribution.csv",
@@ -249,6 +263,7 @@ def run(bom_output_dir: Path, bom_source_dir: Path, item_master_path: Path, outp
             "semi_distribution_by_process_material_product_type.csv",
             "semi_distribution_by_dimension.csv",
             "semi_complexity_inputs.csv",
+            "semi_bom_features.csv",
         ],
     }
     (output_dir / "semi_distribution_manifest.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")

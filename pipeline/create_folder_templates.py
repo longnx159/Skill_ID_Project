@@ -43,22 +43,26 @@ def create_folder_templates(root=Path("input_data"), overwrite=False):
             ws.cell(1, column).comment = Comment(definition, "Skill ID")
             ws.column_dimensions[letter].width = min(max(len(header) + 3, 21), 35)
             is_date = header in ["RAF Month", "QC_Start", "QC_Stop", "Worker_Start", "Worker_Stop", "EffectiveFrom", "AssignmentTime"]
-            is_number = header in ["Qty Doing", "Total Actual Hours", "QCQty", "ExpectedQty", "RoundNo", "Score", "Planner Verified Skill Level", "HandedFailQty", "RecoveredQty"]
+            is_number = header in ["Qty Doing", "Total Actual Hours", "QCQty", "ExpectedQty", "RoundNo", "Score", "ConfidencePct", "Planner Verified Skill Level", "HandedFailQty", "RecoveredQty"]
             for row in range(2, 102):
                 cell = ws.cell(row, column)
                 cell.font = Font(name="Arial", size=11)
-                cell.number_format = "yyyy-mm-dd hh:mm:ss" if is_date else ("0.000" if is_number else "@")
+                cell.number_format = "yyyy-mm-dd hh:mm:ss" if is_date else ("0.0%" if header == "ConfidencePct" else "0.000" if is_number else "@")
             options = None
             if header == "QCStatus": options = '"Pass,Fail"'
             elif header == "Factor": options = '"Quality,PartMechanism,MaterialDesignProcess,Stone,Learning"'
             elif header in ["Approved", "FollowedTop3"]: options = '"TRUE,FALSE"'
             elif header == "Arm": options = '"Control,Intervention"'
             elif header == "DataQualityStatus": options = '"Valid,Pending,Exception"'
+            elif header == "Method": options = '"FIXED_INPUT,MODEL_ESTIMATE"'
+            elif header == "ConfidenceStatus": options = '"ESTIMATED_VALIDATED,CONDITIONAL_DIAGNOSTIC,NOT_ESTIMATED,NOT_APPLICABLE"'
             validation = None
             if options:
                 validation = DataValidation(type="list", formula1=options, allow_blank=True)
             elif header in ["Score", "Planner Verified Skill Level"]:
                 validation = DataValidation(type="decimal", operator="between", formula1=0, formula2=10, allow_blank=True)
+            elif header == "ConfidencePct":
+                validation = DataValidation(type="decimal", operator="between", formula1=0, formula2=1, allow_blank=True)
             elif header in ["RoundNo", "QCQty", "ExpectedQty"]:
                 validation = DataValidation(type="whole", operator="greaterThanOrEqual", formula1=0 if header == "QCQty" else 1, allow_blank=True)
             elif is_number:
