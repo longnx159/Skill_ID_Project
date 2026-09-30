@@ -7,7 +7,7 @@ import pandas as pd
 
 from pipeline.quoted_inputs import read_bom_quotes
 from pipeline.legacy_time import prepare_legacy_2025
-from pipeline.quoted_time_model import fit_time, predict_parts, temporal_split
+from pipeline.quoted_time_model import features, fit_time, predict_parts, temporal_split
 
 
 class QuoteDataTests(unittest.TestCase):
@@ -46,6 +46,16 @@ class QuoteDataTests(unittest.TestCase):
         np.testing.assert_allclose(parts.PredictedMinutes,
                                    parts.WorkContentMinutes + parts.TechnicalDifficultyMinutes + parts.WorkerEffectMinutes)
         self.assertTrue(parts.PredictedMinutes.gt(0).all())
+
+    def test_all_available_difficulty_sources_keep_their_weights(self):
+        data = pd.DataFrame({"Process": ["Sanding"], "SizeAdjustedGroup": ["G"],
+                             "PartMechanismSourceScore": [8.], "MaterialDesignSourceScore": [6.],
+                             "StoneScore": [2.]})
+        quality = pd.DataFrame({"Process": ["Sanding"], "SizeAdjustedGroup": ["G"],
+                                "QualityScore": [4.]})
+        result = features(data, quality).iloc[0]
+        self.assertAlmostEqual(result.DifficultyCoverage, .95)
+        self.assertAlmostEqual(result.DifficultyScore, (.4*4 + .25*8 + .2*6 + .1*2)/.95)
 
     def test_legacy_reference_uses_only_2025_and_keeps_measurement_separate(self):
         raw = pd.DataFrame({"Reference": ["A", "B", "C"], "Worker": ["W1"] * 3,

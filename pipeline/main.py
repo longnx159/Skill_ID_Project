@@ -14,6 +14,10 @@ def main():
     parser.add_argument("--exclude-month", default=Config.incomplete_month, help="Production month YYYY-MM; default retains all")
     parser.add_argument("--qc-exclude-month", default=Config.qc_exclude_month, help="QC source month YYYY-MM; pass an empty string to retain all")
     parser.add_argument("--recover-interrupted", action="store_true", help="Finalize abandoned local run records in --output, then exit; active runs are skipped")
+    parser.add_argument("--skip-planner-quality", action="store_true", help="Explicitly skip the parallel Planner QC comparison")
+    parser.add_argument("--planner-draws", type=int, default=500)
+    parser.add_argument("--planner-tune", type=int, default=500)
+    parser.add_argument("--planner-chains", type=int, default=4)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
     try:
@@ -23,7 +27,9 @@ def main():
             return
         result = run_pipeline(Config(input_dir=args.input_dir, output_dir=args.output,
             source_cutoff=args.cutoff, incomplete_month=args.exclude_month,
-            qc_exclude_month=args.qc_exclude_month))
+            qc_exclude_month=args.qc_exclude_month, planner_quality_enabled=not args.skip_planner_quality,
+            planner_quality_draws=args.planner_draws, planner_quality_tune=args.planner_tune,
+            planner_quality_chains=args.planner_chains))
         print(f"Report: {result['output_dir'] / 'run_summary.md'}")
     except KeyboardInterrupt:
         parser.exit(130, "Run interrupted. See the run summary in the output root.\n")

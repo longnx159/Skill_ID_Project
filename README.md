@@ -34,7 +34,7 @@ After generating the BOM distribution and completing a core pipeline run, export
 python -B -m pipeline.semi_item_report --semi-dir outputs/semi_distribution_20260916_run5
 ```
 
-By default this resolves `outputs/runs/latest_successful.json`; pass `--core-run <run-directory>` to pin a particular completed run. The command creates a unique directory under `outputs/semi_item_reports/` containing `semi_item_report.csv`, an English Markdown and JSON summary, and frozen source snapshots. The CSV has one row per SemiBOM, including BOM-blocked items. A blank `FinalTechnicalComplexity` means no approved score, not zero. Mechanical part counts include only direct `SM_Casting` and `SM_ACJ` components with `PCS` units. The source BOM distribution is dated; regenerate it when the BOM or Item Master changes.
+By default this resolves `outputs/runs/latest_successful.json`; pass `--core-run <run-directory>` to pin a particular completed run. The command creates a unique directory under `outputs/semi_item_reports/` containing `semi_item_report.csv`, an English Markdown and JSON summary, and frozen source snapshots. The CSV has one row per SemiBOM, including items with BOM source warnings. A blank `FinalTechnicalComplexity` means no approved score, not zero. Mechanical part counts include only direct `SM_Casting` and `SM_ACJ` components with `PCS` units. The source BOM distribution is dated; regenerate it when the BOM or Item Master changes. A BOM warning leaves BOM-derived counts unavailable but does not suppress independent worker, QC or supplied engineering-factor evidence.
 
 ## 2. Fill the input folders
 

@@ -42,10 +42,18 @@ class Config:
     stability_repetitions: int = 2
     max_bayesian_rows: int = 2000
     max_bayesian_items: int = 100
+    # CLI enables the parallel QC comparison; library callers opt in explicitly.
+    planner_quality_enabled: bool = False
+    planner_quality_draws: int = 500
+    planner_quality_tune: int = 500
+    planner_quality_chains: int = 4
+    planner_quality_compile_mode: str = "NUMBA"
 
     def __post_init__(self) -> None:
         """Validate configuration constraints."""
         errors: list[str] = []
+        if self.planner_quality_draws < 100 or self.planner_quality_tune < 100 or self.planner_quality_chains < 2:
+            errors.append("Planner quality requires >=100 draws/warmup and >=2 chains")
         import re
         for name in ("incomplete_month", "qc_exclude_month"):
             value = getattr(self, name)

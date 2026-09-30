@@ -2,7 +2,7 @@
 
 One response per WO-round: allocated Final hours / final GoodCW units.
 Quality is refitted using earlier QC only; no full-snapshot Rasch score enters
-temporal evaluation. Quote, Stone and Material Design are undated engineering snapshots.
+temporal evaluation. Quote, Part & Mechanism, Stone and Material Design are undated engineering snapshots.
 """
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ from scipy.special import expit
 from .quoted_inputs import read_bom_quotes
 from .legacy_time import prepare_legacy_2025
 from .material_design_inputs import read_material_design
+from .part_mechanism_inputs import read_part_mechanism
 from .rasch_experiments import fit_candidate
 from .rasch_semi_estimate import _source_check
 from .run_reporting import atomic_json, file_hash
@@ -39,7 +40,7 @@ def latest_run(root: Path, pointer_name: str) -> Path:
     return root / pointer["run_id"]
 
 
-def prepare_time(production_path, master_path, semis, quotes, stone_path, material_path):
+def prepare_time(production_path, master_path, semis, quotes, stone_path, material_path, part_path):
     workers = pd.read_excel(production_path, sheet_name="GSWorkerWorkingHours", dtype={"Worker": str, "ProductionOrderNumber": str})
     orders = pd.read_excel(production_path, sheet_name="WorkOrderData", dtype={"ProductionOrderNumber": str, "ItemNumber": str})
     master = pd.read_excel(master_path, dtype=str)
@@ -65,7 +66,8 @@ def prepare_time(production_path, master_path, semis, quotes, stone_path, materi
         orders.rename(columns={"ProductionOrderNumber": "WO"}), on="WO", how="left", validate="many_to_one", indicator="WOJoin")
     rounds["Date"] = pd.to_datetime(rounds.MaxRAFDate, errors="coerce")
     rounds["Branch"] = np.where(rounds.RoundNo.eq(1), "First pass", "Rework")
-    semi_columns = ["SemiBOM", "SemiItem", "Process", "Product Type"] + (["ReportStatus"] if "ReportStatus" in semis else [])
+    semi_columns = ["SemiBOM", "SemiItem", "Process", "Product Type"] + [
+        col for col in ("ReportStatus", "BOMStatus") if col in semis]
     q = semis[semi_columns].merge(quotes, on="SemiBOM", how="left", validate="one_to_one")
     q["QuoteStatus"] = q.QuoteStatus.fillna("MISSING")
     stone = pd.read_excel(stone_path, dtype={"BOM item number": str})
@@ -76,6 +78,9 @@ def prepare_time(production_path, master_path, semis, quotes, stone_path, materi
     material_scores, material_audit, material_counts = read_material_design(material_path, q)
     q = q.merge(material_scores, on="SemiBOM", how="left", validate="one_to_one")
     q["MaterialDesignSourceStatus"] = q.MaterialDesignSourceStatus.fillna("MISSING_SOURCE")
+    part_scores, part_audit, part_counts = read_part_mechanism(part_path, q)
+    q = q.merge(part_scores, on="SemiBOM", how="left", validate="one_to_one")
+    q["PartMechanismEvidenceStatus"] = q.PartMechanismEvidenceStatus.fillna("MISSING_SOURCE")
     master = master.rename(columns={"Item Number": "SemiItem", "Item Number (Size Adjusted)": "SizeAdjustedGroup", "Process": "MasterProcess"})
     q = q.merge(master[["SemiItem", "SizeAdjustedGroup", "MasterProcess"]], on="SemiItem", how="left", validate="many_to_one")
     q["SizeAdjustedGroup"] = q.SizeAdjustedGroup.fillna(q.SemiItem)
@@ -102,7 +107,6 @@ def prepare_time(production_path, master_path, semis, quotes, stone_path, materi
         (rounds.MissingWorker | rounds.WorkerCount.ne(1), "TEAM_OR_MISSING_WORKER"),
         (rounds.ItemNumber.isin(ambiguous), "AMBIGUOUS_SEMI_BOM"),
         (rounds.SemiBOM.isna(), "NO_UNIQUE_SEMI"),
-        (rounds.ReportStatus.eq("BOM_BLOCKED") if "ReportStatus" in rounds else pd.Series(False, index=rounds.index), "BOM_BLOCKED"),
         (rounds.ReportStatus.eq("EXCLUDED_SEMI_SCOPE") if "ReportStatus" in rounds else pd.Series(False, index=rounds.index), "EXCLUDED_SEMI_SCOPE"),
         (rounds.ProcessMismatch.fillna(True).astype(bool), "PROCESS_MAPPING_MISMATCH"),
         (rounds.GoodCW.le(0) | rounds.GoodCW.isna() | rounds.AllocatedHours.le(0), "NONPOSITIVE_RESPONSE"),
@@ -115,7 +119,7 @@ def prepare_time(production_path, master_path, semis, quotes, stone_path, materi
     eligible["PB"] = eligible.Process + " / " + eligible.Branch
     eligible["GroupKey"] = eligible.PB + " / " + eligible.SizeAdjustedGroup
     eligible["WorkerKey"] = eligible.PB + " / " + eligible.Worker
-    return eligible.reset_index(drop=True), rounds, q, material_audit, material_counts
+    return eligible.reset_index(drop=True), rounds, q, material_audit, material_counts, part_audit, part_counts
 
 
 def temporal_split(data, qc):
@@ -169,8 +173,12 @@ def features(data, quality):
     out["QualityAvailable"] = out.QualityScore.notna()
     out["StoneAvailable"] = out.StoneScore.notna()
     out["MaterialAvailable"] = out.MaterialDesignSourceScore.notna()
-    out["DifficultyCoverage"] = .4 * out.QualityAvailable + .2 * out.MaterialAvailable + .1 * out.StoneAvailable
-    out["DifficultyScore"] = (.4 * out.QualityScore.fillna(0) + .2 * out.MaterialDesignSourceScore.fillna(0)
+    part = out.get("PartMechanismSourceScore", pd.Series(np.nan, index=out.index))
+    out["PartAvailable"] = part.notna()
+    out["DifficultyCoverage"] = (.4 * out.QualityAvailable + .25 * out.PartAvailable
+                                 + .2 * out.MaterialAvailable + .1 * out.StoneAvailable)
+    out["DifficultyScore"] = (.4 * out.QualityScore.fillna(0) + .25 * part.fillna(0)
+                              + .2 * out.MaterialDesignSourceScore.fillna(0)
                               + .1 * out.StoneScore.fillna(0)).div(out.DifficultyCoverage.where(out.DifficultyCoverage.gt(0)))
     out["Pattern"] = ("q" + out.QualityAvailable.astype(int).astype(str) + "_m"
                       + out.MaterialAvailable.astype(int).astype(str) + "_s" + out.StoneAvailable.astype(int).astype(str))
@@ -381,6 +389,7 @@ def run(args):
                  "master.xlsx": ROOT / "input_data/09_Item_Master/Item_Master.xlsx", "semis.csv": args.semi_report.resolve(),
                  "stone.xlsx": ROOT / "input_data/06_Engineering_Factors/Stone/Semi Stone Score.xlsx",
                  "material_design.xlsx": ROOT / "input_data/06_Engineering_Factors/Material Design Process/Material Design Process Score.xlsx",
+                 "part_mechanism.xlsx": ROOT / "input_data/06_Engineering_Factors/Part Quantity, Mechanism/Part & Mechanism Score.xlsx",
                  "qc_rounds.csv": qc_file}
         for name, path in paths.items():
             before = file_hash(path)
@@ -393,12 +402,14 @@ def run(args):
         quotes, quote_audit = read_bom_quotes(frozen / "quotes.xlsx", semis)
         quote_audit.to_csv(artifacts / "quote_source_audit.csv", index=False, encoding="utf-8-sig")
         quotes.to_csv(artifacts / "normalized_quotes.csv", index=False, encoding="utf-8-sig")
-        data, source_audit, semi_inputs, material_audit, material_counts = prepare_time(
+        data, source_audit, semi_inputs, material_audit, material_counts, part_audit, part_counts = prepare_time(
             frozen / "production.xlsx", frozen / "master.xlsx", semis, quotes,
-            frozen / "stone.xlsx", frozen / "material_design.xlsx")
+            frozen / "stone.xlsx", frozen / "material_design.xlsx", frozen / "part_mechanism.xlsx")
         source_audit.to_csv(artifacts / "time_source_audit.csv", index=False, encoding="utf-8-sig")
         material_audit.to_csv(artifacts / "material_design_source_audit.csv", index=False, encoding="utf-8-sig")
+        part_audit.to_csv(artifacts / "part_mechanism_source_audit.csv", index=False, encoding="utf-8-sig")
         summary["material_design_source"] = material_counts
+        summary["part_mechanism_source"] = part_counts
         legacy, legacy_audit, legacy_counts = prepare_legacy_2025(frozen / "legacy_2025_source.xlsx", semi_inputs)
         if len(legacy) < 100:
             raise ValueError("Too few valid 2025 legacy rows to estimate a quote reference")
@@ -469,7 +480,7 @@ def run(args):
         target_all["WorkerKey"] = "REFERENCE_WORKER_ZERO"
         target_all["Worker"] = "REFERENCE_WORKER_ZERO"
         target = target_all.loc[target_all.PB.isin(model["schema"]["pb"]) & ~target_all.ProcessMismatch
-                                & ~target_all.ReportStatus.isin(["BOM_BLOCKED", "EXCLUDED_SEMI_SCOPE"])].reset_index(drop=True)
+                                & ~target_all.ReportStatus.eq("EXCLUDED_SEMI_SCOPE")].reset_index(drop=True)
         target = features(target, final_q)
         predictions = predict_parts(model, target)
         print(f"WO-cluster bootstrap: {args.bootstrap} refits; {len(target)} Semi/branch targets", flush=True)
@@ -482,8 +493,8 @@ def run(args):
             target.set_index(["SemiBOM", "Branch"]).index)].copy()
         missing_targets["TimeModelStatus"] = np.select(
             [missing_targets.ReportStatus.eq("EXCLUDED_SEMI_SCOPE"),
-             missing_targets.ReportStatus.eq("BOM_BLOCKED"), missing_targets.ProcessMismatch],
-            ["EXCLUDED_SEMI_SCOPE", "BOM_BLOCKED", "PROCESS_MAPPING_MISMATCH"], default="NO_PROCESS_BRANCH_MODEL")
+             missing_targets.ProcessMismatch],
+            ["EXCLUDED_SEMI_SCOPE", "PROCESS_MAPPING_MISMATCH"], default="NO_PROCESS_BRANCH_MODEL")
         if not missing_targets.empty:
             semi_time = pd.concat([semi_time, missing_targets.reindex(columns=semi_time.columns)], ignore_index=True)
         semi_time = semi_time.sort_values(["SemiBOM", "Branch"], kind="stable")
@@ -531,7 +542,7 @@ def run(args):
             "2025 legacy Total Actual Hours / Qty Doing has a different scope and no RoundNo. It informs only a quote-slope prior, never a first-pass or rework label.",
             "The legacy prior weight is chosen on 2026 Final-time tuning data; 2025 observations do not enter 2026 calibration or test metrics.",
             "Primary fit excludes multiworker rounds because individual piece attribution is unavailable; see source audit.",
-            "Current quote, Stone and Material Design snapshots lack effective dates. Temporal results are retrospective snapshot-conditional, not as-of deployment validation.",
+            "Current quote, Part & Mechanism, Stone and Material Design snapshots lack effective dates. Temporal results are retrospective snapshot-conditional, not as-of deployment validation.",
             "All effects are fitted jointly with Gaussian penalties. WorkContent/Technical/Worker separation is a reference convention, not causally identified effort.",
             "Bootstrap intervals hold QC features, legacy prior fit, model selection and current engineering snapshots fixed. They exclude upstream Rasch and legacy-prior uncertainty.",
             "First-pass and rework targets are separate round conditions. Do not sum their predictions without a rework probability/round-count model.",
@@ -555,6 +566,7 @@ def run(args):
                  f"Input quote unit: minutes per Semi. Positive matched quotes: {summary['cohort']['semi_quotes_positive']:,}.",
                  f"Eligible WO-rounds: {len(data):,}; modeled Semi/branch rows: {summary['semi_branch_predictions']:,} of {len(semi_time):,}.",
                  f"Legacy 2025 aggregate reference: {len(legacy):,} eligible of {legacy_counts['rows_2025']:,} 2025 rows; selected quote-prior weight: {selected.LegacyPriorWeight:g}.",
+                 f"Part & Mechanism source scores: {part_counts['matched_semi_boms']:,} SemiBOMs, including {part_counts['incomplete_component_detail']:,} with incomplete component detail.",
                  f"Material Design Process source scores: {material_counts['selected_semi_boms']:,} SemiBOMs, joined by Semi BOM Item, item, process and product type.",
                  "", "## Method", "",
                  "Joint regularized log-time regression with process/branch intercepts, global quote and difficulty slopes, shrunk process/branch slope deviations, and shrunk Semi-group and worker effects. No observed-time average is added a second time. Quote is a learned Work Content covariate, not a fixed offset or a claimed convex blend weight. A separately fitted 2025 aggregate-hours quote slope can act as a validated prior; its time level and branch labels are never transferred.",

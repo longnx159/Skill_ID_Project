@@ -1,0 +1,12 @@
+{
+  "id": "USER_WORKER_VALIDATION_20260928",
+  "status": "USER_VALIDATED",
+  "validated_on": "2026-09-28",
+  "validated_by": "User in current conversation",
+  "statement": "tôi đã validate điểm rồi điều chỉnh lại đi",
+  "scope": "All FIRST_PASS and REWORK worker scores in the reviewed workbook",
+  "source_sha256": {
+    "Rasch first pass workers.csv": "47ea4fe5cd40d9f5a61f34190ccc8936147eef8554976d08d6ab59e5e3f65555",
+    "Rasch rework workers.csv": "14fcf74780c84f5bb599e7ed0d21421671f2c10402ab8bf058746b6148619ea5"
+  }
+}

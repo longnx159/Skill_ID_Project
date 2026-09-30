@@ -1,5 +1,10 @@
 # Skill ID run operations — 0.5.3-pilot.2
 
+The CLI now also runs the parallel Planner-adjusted QC comparison. See
+[PLANNER_QUALITY_MODEL.md](PLANNER_QUALITY_MODEL.md) for the actual-worker Rasch
+anchors, temporal acceptance gates and updated 100% first-pass rule when no
+usable rework data exists. Prior Rasch outputs remain available and unchanged.
+
 ## Run and read the report
 
 From the project directory:
@@ -51,6 +56,7 @@ It resolves the latest completed core run by default and writes an isolated `out
 - Unknown/invalid production rounds remain unknown and cannot supply worker-level QC attribution. Neither an unmatched first-round worker nor a multiple-worker round falls back to a QC inspector or the whole-WO primary worker.
 - Missing hours and dates are not fabricated. MES worker hours require `Final` or `Origin`.
 - First-pass and rework convergence fields are named separately. Both branches explicitly report calibration as `NOT_VALIDATED` and decision eligibility as `BLOCKED`. Numerical estimates remain diagnostic; final complexity and quality approval gates remain in place.
+- Rasch uses the earliest eligible QC round as the zero-effect reference. This prevents the intercept and the reference-round effect from absorbing the same baseline. Numerical convergence does not change the separate calibration or approval gates.
 
 ## Summary and comparisons
 

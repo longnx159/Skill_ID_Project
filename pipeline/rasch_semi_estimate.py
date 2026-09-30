@@ -94,14 +94,27 @@ def estimate_quality(experiment_run: Path, root: Path, draws: int = 4096) -> pd.
         return source
     rounds = pd.read_csv(checked("experiment/modeling_rounds.csv"), dtype={"WO": str, "SizeAdjustedGroup": str}, low_memory=False)
     branches = []
+    skipped = []
     for selected in summary["selections"]:
         variant = selected.get("selected_variant")
         if not variant:
+            skipped.append({"process": selected["Process"], "branch": selected["Branch"], "reason": "NO_SELECTED_MODEL"})
             continue
         process, branch = selected["Process"], selected["Branch"]
         filename = (process + "_" + branch + "_" + variant).replace(" ", "_") + ".json"
         model = json.loads(checked("experiment/models/" + filename).read_text(encoding="utf-8"))
+        if VARIANTS[variant][2] or not model.get("converged") or "schema" not in model:
+            skipped.append({"process": process, "branch": branch, "variant": variant,
+                            "reason": "LEGACY_MODEL" if VARIANTS[variant][2] else "MODEL_NOT_CONVERGED"})
+            continue
         branches.append(_branch_estimates(model, rounds, process, branch))
+    columns = ["Process", "SizeAdjustedGroup", "QualityFactor_Diagnostic", "RaschConfidencePct",
+               "RaschInterval90Lower", "RaschInterval90Upper", "RaschConfidenceStatus",
+               "QualityModelSource", "QualityFirstPassRounds", "QualityReworkRounds"]
+    if not branches:
+        result = pd.DataFrame(columns=columns)
+        result.attrs["skipped_branches"] = skipped
+        return result
     all_branch = pd.concat(branches, ignore_index=True)
     first = all_branch.loc[all_branch.Branch.eq("First pass")].drop(columns="Branch").add_prefix("First_")
     rework = all_branch.loc[all_branch.Branch.eq("Rework")].drop(columns="Branch").add_prefix("Rework_")
@@ -127,4 +140,6 @@ def estimate_quality(experiment_run: Path, root: Path, draws: int = 4096) -> pd.
             "QualityFirstPassRounds": row.First_ModelRounds,
             "QualityReworkRounds": row.Rework_ModelRounds,
         })
-    return pd.DataFrame(out)
+    result = pd.DataFrame(out, columns=columns)
+    result.attrs["skipped_branches"] = skipped
+    return result

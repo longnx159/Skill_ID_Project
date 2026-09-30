@@ -212,6 +212,20 @@ class RunReportingTests(unittest.TestCase):
         self.assertTrue(groups.DecisionEligibility.eq("BLOCKED").all())
         self.assertTrue(groups.CalibrationStatus.eq("NOT_VALIDATED").all())
 
+    def test_first_round_is_reference_for_rasch_fit(self):
+        first = pd.DataFrame({"WO": [f"W{i}" for i in range(12)],
+                              "Worker": ["A", "B"] * 6,
+                              "RoundNo": [1] * 12,
+                              "Process": ["Polishing"] * 12,
+                              "SizeAdjustedGroup": ["G1"] * 6 + ["G2"] * 6,
+                              "PassQty": [1, 3, 2, 4, 1, 3] * 2,
+                              "InspectedQty": [5] * 12})
+        production = first[["WO", "Worker"]].rename(columns={"WO": "Reference"})
+        result = fit_rasch_quality(first, production)
+        self.assertEqual(result["round_effects"].RoundNo.tolist(), [1])
+        self.assertEqual(result["round_effects"].Rasch_Round_Effect.tolist(), [0.0])
+        self.assertTrue(result["converged"]["Polishing"])
+
     def test_qc_exclusion_uses_created_date_and_can_be_disabled(self):
         mapping = item_mapping(pd.DataFrame({"Item Number": ["001"], "Process": ["Sanding"]}))
         tickets = pd.DataFrame({"QualityOrderId": ["Q1"], "WO": ["W1"], "Item Number": ["001"], "RoundNo": [1],

@@ -31,16 +31,19 @@ def prepare_legacy_2025(path: Path, semi_inputs: pd.DataFrame) -> tuple[pd.DataF
     source["AggregateMinutesPerQty"] = 60 * source.TotalActualHours / source.QtyDoing.where(source.QtyDoing.gt(0))
 
     ambiguous = set(semi_inputs.loc[semi_inputs.SemiItem.duplicated(keep=False), "SemiItem"])
-    unique = semi_inputs.loc[~semi_inputs.SemiItem.isin(ambiguous),
-                              ["SemiBOM", "SemiItem", "Process", "SizeAdjustedGroup",
-                               "QuotedMinutesPerSemi", "StoneScore", "MaterialDesignSourceScore", "ReportStatus"]].copy()
+    source_columns = ["SemiBOM", "SemiItem", "Process", "SizeAdjustedGroup",
+                      "QuotedMinutesPerSemi", "StoneScore", "MaterialDesignSourceScore", "ReportStatus"]
+    if "BOMStatus" in semi_inputs:
+        source_columns.append("BOMStatus")
+    if "PartMechanismSourceScore" in semi_inputs:
+        source_columns.append("PartMechanismSourceScore")
+    unique = semi_inputs.loc[~semi_inputs.SemiItem.isin(ambiguous), source_columns].copy()
     unique = unique.rename(columns={"Process": "CurrentProcess"})
     source = source.merge(unique, left_on="Item Number", right_on="SemiItem", how="left", validate="many_to_one")
     source["Exclusion"] = ""
     checks = [
         (source["Item Number"].isin(ambiguous), "AMBIGUOUS_SEMI_ITEM"),
         (source.SemiBOM.isna(), "NO_UNIQUE_BOM_SEMI"),
-        (source.ReportStatus.eq("BOM_BLOCKED"), "BOM_BLOCKED"),
         (source.ReportStatus.eq("EXCLUDED_SEMI_SCOPE"), "EXCLUDED_SEMI_SCOPE"),
         (source.Worker.isna() | source.Worker.eq(""), "MISSING_WORKER"),
         (source.CurrentProcess.isna() | source.Process.isna(), "MISSING_PROCESS"),
@@ -59,8 +62,9 @@ def prepare_legacy_2025(path: Path, semi_inputs: pd.DataFrame) -> tuple[pd.DataF
     usable["PB"] = usable.CurrentProcess + " / " + usable.Branch
     usable["GroupKey"] = usable.PB + " / " + usable.SizeAdjustedGroup.fillna(usable.SemiItem)
     usable["WorkerKey"] = usable.PB + " / " + usable.Worker
-    coverage = .1 * usable.StoneScore.notna() + .2 * usable.MaterialDesignSourceScore.notna()
-    usable["DifficultyScore"] = (.1 * usable.StoneScore.fillna(0) + .2 * usable.MaterialDesignSourceScore.fillna(0)).div(
+    part = usable.get("PartMechanismSourceScore", pd.Series(np.nan, index=usable.index))
+    coverage = .25 * part.notna() + .1 * usable.StoneScore.notna() + .2 * usable.MaterialDesignSourceScore.notna()
+    usable["DifficultyScore"] = (.25 * part.fillna(0) + .1 * usable.StoneScore.fillna(0) + .2 * usable.MaterialDesignSourceScore.fillna(0)).div(
         coverage.where(coverage.gt(0)))
     usable["Pattern"] = ("m" + usable.MaterialDesignSourceScore.notna().astype(int).astype(str)
                          + "_s" + usable.StoneScore.notna().astype(int).astype(str))

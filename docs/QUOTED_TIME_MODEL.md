@@ -75,10 +75,10 @@ Because the joint fit uses log minutes, this minute increment scales with the
 quote-adjusted Work Content baseline; the underlying Semi difficulty score
 does not depend on quoted minutes.
 Quality is the 80/20 first-pass/rework Rasch-style score fitted from QC before
-each training cutoff. Material/Design/Process and Stone are current fixed
-engineering source scores. Their available weights (20% and 10%) join the
+each training cutoff. Part/Mechanism, Material/Design/Process and Stone are current
+fixed engineering source scores. Their available weights (25%, 20% and 10%) join the
 40% Quality score before a technical-difficulty minute coefficient is fitted.
-Part/Mechanism and Learning are not present in this time fit. The separately
+Learning is not present in this time fit. The separately
 approved Semi score and its `% confident` are unchanged by quote data.
 
 WO dates define train, tuning, calibration and untouched test windows. A WO
@@ -94,8 +94,10 @@ status even where no time estimate is available. Items excluded by the Semi
 prefix rule or a Semi/BOM -01/-02 suffix are kept for audit with
 `EXCLUDED_SEMI_SCOPE` and are omitted from allocated-time fitting and
 prediction. The suffix rule treats these as likely outsourced, not proven.
+BOM source warnings remain visible in `BOMStatus` but do not exclude WO/time
+records when the Item, Process, worker, and supplied factor joins are valid.
 
-Quotes, Material/Design/Process and Stone lack effective dates, so temporal evaluation is conditional
+Quotes, Part/Mechanism, Material/Design/Process and Stone lack effective dates, so temporal evaluation is conditional
 on the **current** engineering snapshots. Before operational use, add their
 effective dates, confirm the meaning of `Final`/`Idle`, resolve source-join
 exceptions, and repeat evaluation on new periods. First-pass and rework

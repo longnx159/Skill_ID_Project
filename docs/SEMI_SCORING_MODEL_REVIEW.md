@@ -75,11 +75,12 @@ against minutes per final OK until rework and quantity bases are aligned.
 The SKU `% confident` is an index computed as available weight times the lowest
 confidence of included fitted factors. With only fixed factors, the starting
 confidence is 100%; with a fitted factor lacking confidence, the index is blank.
-Quality is currently the only numeric Semi factor fitted from observed
-production/QC data.
+Quality and provisional Learning are numeric Semi factors estimated from observed
+production/QC data. Learning uses repeated first-round effort within the same
+worker and item; it is not an approved engineering L1–L3 assessment.
 Part, Material and Stone are source/rubric calculations rather than regression
-outputs; Learning has no fitted ramp-up model yet. A future Learning or other
-fitted factor needs its own interval and confidence. A combined Semi-score
+outputs. The provisional Learning model has its own conditional bootstrap
+interval and precision. A combined Semi-score
 confidence would have to propagate uncertainty from **all** fitted factors,
 not reuse Quality's percentage. The `Factor provenance` sheet makes the
 current method and confidence status explicit for each Semi and factor.

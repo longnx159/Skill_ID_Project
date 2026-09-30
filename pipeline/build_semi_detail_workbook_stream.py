@@ -29,7 +29,7 @@ SKU_HEADERS = [
     "SKU / Semi", "Process", "First Pass Yield (40%)",
     "Part & Mechanism (25%)", "Material Design Process 20%",
     "Stone 10%", "Learning 5%", "Total Score10", "Contribute/10",
-    "% contribute", "First Pass Yield Summary", "FPY 40% confident", "% confident overall", "Semi scope status",
+    "% contribute", "First Pass Yield Summary", "FPY 40% confident", "Learning 5% confident", "% confident overall", "Semi scope status",
 ]
 SKU_FACTORS = [
     ("QualityFactor_Approved", 0.40),
@@ -52,16 +52,20 @@ def _sku_score_rows(headers: list[str], records: list[list]) -> list[list]:
         optional = lambda name: row[ix[name]] if name in ix else None
         if optional("DifficultyStatus") == EXCLUDED_STATUS:
             result.append([get("SemiBOM"), get("Process"), None, None, None, None, None,
-                           None, None, 0.0, "Excluded from Semi scoring by code rule", None, None, EXCLUDED_STATUS])
+                           None, None, 0.0, "Excluded from Semi scoring by code rule", None, None, None, EXCLUDED_STATUS])
             continue
         approved = [get(name) if _number(get(name)) else None for name, _ in SKU_FACTORS]
         factors = approved.copy()
         if factors[0] is None and _number(get("QualityFactor_Diagnostic")):
             factors[0] = get("QualityFactor_Diagnostic")
+        if factors[1] is None and _number(optional("PartMechanismSourceScore")):
+            factors[1] = optional("PartMechanismSourceScore")
         if factors[2] is None and _number(optional("MaterialDesignSourceScore")):
             factors[2] = optional("MaterialDesignSourceScore")
         if factors[3] is None and _number(get("StoneSourceScore")):
             factors[3] = get("StoneSourceScore")
+        if factors[4] is None and _number(optional("LearningSourceScore")):
+            factors[4] = optional("LearningSourceScore")
         if any(score is not None and not 0 <= score <= 10 for score in factors):
             raise ValueError("Semi factor score outside 0–10")
         available = [(score, weight) for score, (_, weight) in zip(factors, SKU_FACTORS) if score is not None]
@@ -83,12 +87,24 @@ def _sku_score_rows(headers: list[str], records: list[list]) -> list[list]:
                 summary += f" ({passed:g}/{inspected:g} pieces)"
             if _number(n):
                 summary += f"; {n:g} QC WOs"
-            summary += f"; {get('FirstPass_Calibration_Status') or 'NOT_VALIDATED'}"
+            fit = optional("FirstPass_Rasch_Converged")
+            if fit is True:
+                summary += "; FIT_CONVERGED"
+            elif fit is False:
+                summary += "; FIT_NONCONVERGED"
+            else:
+                summary += "; FIT_NOT_AVAILABLE"
+            calibration = get("FirstPass_Calibration_Status") or "NOT_VALIDATED"
+            if calibration == "NOT_VALIDATED" and factors[0] is not None:
+                summary += "; MODEL_SCORE_INCLUDED_IN_TOTAL; VALIDATION_PENDING"
+            else:
+                summary += f"; {calibration}"
         else:
             summary = "No eligible first-pass QC"
         model_confidences = []
         missing_model_confidence = False
         quality_confidence = None
+        learning_confidence = None
         if factors[0] is not None:
             # Confidence must belong to the exact Quality score displayed.
             if approved[0] is not None:
@@ -105,11 +121,15 @@ def _sku_score_rows(headers: list[str], records: list[list]) -> list[list]:
             else:
                 missing_model_confidence = True
         for index, prefix in [(1, "PartMechanism"), (2, "MaterialDesign"), (3, "Stone"), (4, "Learning")]:
-            if factors[index] is None or optional(prefix + "FactorMethod") != "MODEL_ESTIMATE":
+            source_learning_model = prefix == "Learning" and approved[4] is None and factors[4] is not None
+            if factors[index] is None or not (source_learning_model or optional(prefix + "FactorMethod") == "MODEL_ESTIMATE"):
                 continue
             confidence = optional(prefix + "ConfidencePct")
-            if _number(confidence) and 0 <= confidence <= 1 and optional(prefix + "ConfidenceStatus") == "ESTIMATED_VALIDATED":
+            valid_status = {"ESTIMATED_VALIDATED"} if prefix == "Learning" and not source_learning_model else {"CONDITIONAL_DIAGNOSTIC", "ESTIMATED_VALIDATED"}
+            if _number(confidence) and 0 <= confidence <= 1 and optional(prefix + "ConfidenceStatus") in valid_status:
                 model_confidences.append(confidence)
+                if prefix == "Learning":
+                    learning_confidence = confidence
             else:
                 missing_model_confidence = True
         # Conservative completeness-adjusted index, not a calibrated joint
@@ -117,12 +137,12 @@ def _sku_score_rows(headers: list[str], records: list[list]) -> list[list]:
         confidence = None if missing_model_confidence else coverage * min(model_confidences, default=1.0)
         result.append([
             get("SemiBOM"), get("Process"), *factors, score10, contribution,
-            coverage, summary, quality_confidence, confidence, optional("SemiScopeStatus") or "IN_SCOPE",
+            coverage, summary, quality_confidence, learning_confidence, confidence, optional("SemiScopeStatus") or "IN_SCOPE",
         ])
     return result
 
 
-def _factor_provenance_rows(headers: list[str], records: list[list]) -> list[list]:
+def _factor_provenance_rows(headers: list[str], records: list[list], part_weight: float = .6) -> list[list]:
     """Expose which Semi factors are source/rubric values versus estimates."""
     ix = {name: pos for pos, name in enumerate(headers)}
     result = []
@@ -144,20 +164,30 @@ def _factor_provenance_rows(headers: list[str], records: list[list]) -> list[lis
             quality_confidence = None
         result.append([semi, process, "Quality", 0.40,
                        quality if quality_estimated else None,
-                       "QC_RASCH_MODEL" if quality_estimated else "NOT_ESTIMATED",
+                       (optional("QualityModelSource") or "QC_RASCH_MODEL") if quality_estimated else "NOT_ESTIMATED",
                        quality_confidence,
                        get("RaschConfidenceStatus"),
                        "Within ±1 point of Quality estimate; conditional on selected QC models"])
-        for name, weight, approved_column, pending_method in [
-            ("Part & Mechanism", 0.25, "PartMechanismFactor_Approved", "ENGINEERING_RUBRIC_PENDING"),
-            ("Learning", 0.05, "LearningFactor_Approved", "RAMP_UP_MODEL_PENDING"),
-        ]:
-            score = get(approved_column)
-            result.append([semi, process, name, weight,
-                           score if _number(score) else None,
-                           "APPROVED_ENGINEERING_INPUT" if _number(score) else pending_method,
-                           None, "NOT_APPLICABLE_FIXED_INPUT" if _number(score) else "NOT_ESTIMATED",
-                           "If estimated by a model, provide factor-specific uncertainty before publication"])
+        part = get("PartMechanismFactor_Approved")
+        source_part = optional("PartMechanismSourceScore")
+        approved_part = _number(part)
+        part_score = part if approved_part else source_part if _number(source_part) else None
+        result.append([semi, process, "Part & Mechanism", 0.25, part_score,
+                       "APPROVED_ENGINEERING_INPUT" if approved_part else "SOURCE_RULE_CALCULATION_PROVISIONAL" if part_score is not None else "MISSING_SOURCE",
+                       None, "NOT_APPLICABLE_FIXED_INPUT" if part_score is not None else "NOT_ESTIMATED",
+                       f"Source {part_weight:g}×Part + {1-part_weight:g}×Assembly + Mechanism bonus, capped at 10; evidence {optional('PartMechanismEvidenceStatus') or 'unknown'}"])
+        learning = get("LearningFactor_Approved")
+        learning_source = optional("LearningSourceScore")
+        learning_approved = _number(learning)
+        learning_score = learning if learning_approved else learning_source if _number(learning_source) else None
+        learning_confidence = optional("LearningConfidencePct")
+        learning_status = optional("LearningConfidenceStatus") if learning_score is not None else "NOT_ESTIMATED"
+        result.append([semi, process, "Learning", 0.05,
+                       learning_score,
+                       "APPROVED_ENGINEERING_INPUT" if learning_approved else "OBSERVED_RAMP_UP_MODEL_PROVISIONAL" if learning_score is not None else "INSUFFICIENT_REPEATED_HISTORY",
+                       learning_confidence if _number(learning_confidence) else None,
+                       learning_status,
+                       "Repeated first-round WO effort for the same worker and item; L1, L2 and L3 rank remaining effort at the early, middle and late stage against groups in the same process. See Learning source and trajectories."])
         material = get("MaterialDesignFactor_Approved")
         source_material = optional("MaterialDesignSourceScore")
         approved_material = _number(material)
@@ -206,7 +236,7 @@ def _sheet(wb, name: str, title: str, note: str, headers: list[str], records: li
     ws.append([_cell(ws, h, header=True) for h in headers])
     ws.row_dimensions[5].height = 27
     for row in records:
-        ws.append([_cell(ws, value, pct=headers[i] in {"RoundFPY", "TicketSnapshotFPY", "ObservedFPY", "RaschConfidencePct", "Weight", "% contribute", "FPY 40% confident", "% confident overall", "% confident", "DifficultyCoverage", "EstimatePrecisionWithin20Pct", "CalibrationWithin20Pct", "WAPE", "Within20Pct", "PredictionInterval90Coverage"}, warning=isinstance(value, str) and value in {"BLOCKED", "NOT_VALIDATED", "NOT_ESTIMATED", "ITEM_MISMATCH"}) for i, value in enumerate(row)])
+        ws.append([_cell(ws, value, pct=headers[i] in {"RoundFPY", "TicketSnapshotFPY", "ObservedFPY", "RaschConfidencePct", "LearningConfidencePct", "Weight", "% contribute", "FPY 40% confident", "Learning 5% confident", "% confident overall", "% confident", "DifficultyCoverage", "EstimatePrecisionWithin20Pct", "CalibrationWithin20Pct", "WAPE", "Within20Pct", "PredictionInterval90Coverage"}, warning=isinstance(value, str) and value in {"BLOCKED", "NOT_VALIDATED", "NOT_ESTIMATED", "ITEM_MISMATCH"}) for i, value in enumerate(row)])
     ws.auto_filter.ref = f"A5:{get_column_letter(len(headers))}{len(records)+5}"
     for col, h in enumerate(headers, start=1):
         width = 17
@@ -232,6 +262,8 @@ def build(destination: Path) -> Path:
         ["Excluded SemiBOMs by code rule", manifest["excluded_semi_scope"]],
         ["Approved final Semi difficulties", manifest["approved_final_difficulty_rows"]],
         ["SemiBOMs with Stone source score", manifest["semi_with_stone_source_score"]],
+        ["SemiBOMs with Part & Mechanism source score", manifest["semi_with_part_mechanism_source_score"]],
+        ["In-scope SemiBOMs with Learning score", manifest["in_scope_semi_with_learning_score"]],
         ["SemiBOMs with Material Design Process source score", manifest["semi_with_material_design_source_score"]],
         ["SemiBOMs without Stone source score", manifest["semi_without_stone_source_score"]],
         ["SemiBOMs with modeled Quality estimate", manifest["semi_with_diagnostic_quality_estimate"]],
@@ -246,28 +278,33 @@ def build(destination: Path) -> Path:
         ["Per-Semi Rasch confidence percentages", manifest["rasch_confidence_pct_rows"]],
         ["SKU rows with available-factor Score10", sum(row[7] is not None for row in sku_records)],
         ["SKU scored rows with FPY 40% confidence", sum(row[7] is not None and row[11] is not None for row in sku_records)],
-        ["SKU scored rows with overall confidence index", sum(row[7] is not None and row[12] is not None for row in sku_records)],
+        ["SKU scored rows with Learning 5% confidence", sum(row[7] is not None and row[12] is not None for row in sku_records)],
+        ["SKU scored rows with overall confidence index", sum(row[7] is not None and row[13] is not None for row in sku_records)],
         ["SKU rows with all five factors", sum(math.isclose(row[9], 1.0) for row in sku_records)],
     ]
     _sheet(wb, "Summary", "Semi difficulty, Stone and QC evidence", "SKU Score10 uses available factors; confidence is reduced by missing weight. Approved final score remains separately gated.", summary[0], summary[1:])
     _sheet(
         wb, "SKU Semi Score", "SKU / Semi score (0–10)",
-        "Excluded codes have no score. In-scope missing factors are skipped; FPY confidence and completeness-adjusted overall confidence are separate.",
+        "Excluded codes have no score. BOM source warnings remain in Semi difficulty; direct factor and QC evidence can still contribute. FPY, Learning and overall confidence are separate.",
         SKU_HEADERS, sku_records,
     )
     _sheet(
         wb, "Factor provenance", "Semi factor methods and confidence",
         "Confidence applies to fitted estimates. Fixed source/rubric inputs have no statistical confidence percentage; missing models stay blank.",
         ["SKU / Semi", "Process", "Factor", "Weight", "Score10", "Method", "% confident", "Confidence status", "Confidence basis"],
-        _factor_provenance_rows(semi_headers, semi_records),
+        _factor_provenance_rows(semi_headers, semi_records, manifest["part_mechanism_source"]["part_weight"]),
     )
     notes = {
+        "WO Summary": "One row per first-round WO. Pass/Fail and FPY use first-round QC once; ProductionWorkers lists that round's workers. Verified Skill uses the Planner 2026-08-03 baseline by worker and process; multiple-worker or unmatched skills stay blank.",
         "Semi difficulty": "One row per SemiBOM. Stone source and Rasch group difficulty are diagnostic inputs; blank final score is not zero.",
+        "Part Mechanism source": "Original engineering scores keyed by Semi BOM. EvidenceStatus flags missing assembly detail; source scores remain provisional.",
         "Material Design source": "Original Material/Design/Process engineering rows. SelectionStatus identifies the product-type-matched row used per SemiBOM.",
+        "Learning source": "Provisional L1-L3 group estimates from repeated first-round WOs, with separate interval, precision and evidence counts. Missing evidence remains blank.",
+        "Learning trajectories": "One row per eligible worker-item history, using first, middle and last WOs after source-quality filters. Worker identifiers and source WO dates remain visible.",
         "Stone source": "New Stone workbook, one row per FG–Semi source context. Filter SemiBOM to inspect provenance.",
         "QC tickets": "One row per QualityOrderId. Ticket snapshot FPY and matched first-round FPY have different grains.",
         "Ticket workers": "One row per ticket and attributed production worker; team QC results are shared, not allocated.",
-        "Rasch workers": "Process/branch fitted worker effects are diagnostic; calibration is not validated.",
+        "Rasch workers": "CalibrationStatus records user validation; StatisticalCalibrationStatus separately records statistical calibration. See ValidationBasis and the run summary for the accepted score version.",
         "Quote source": "Original BOM quote rows. Conflicts and nonpositive minutes are retained but not used as calibrated inputs.",
     }
     for name, headers in manifest["sheet_columns"].items():
@@ -276,24 +313,32 @@ def build(destination: Path) -> Path:
         del records
     definitions = [
         ["Field", "Definition / interpretation"],
+        ["USER_VALIDATED / ELIGIBLE_USER_VALIDATED", "Worker scores accepted for use by the user. Acceptance is tied to the hashes of the reviewed first-pass and rework worker files; changed scores require a new validation record. StatisticalCalibrationStatus remains separate."],
         ["FinalTechnicalComplexity", "Approved 0–10 Semi difficulty. Blank when Rasch and factor gates are not met; blank is not zero."],
-        ["SKU sheet First Pass Yield (40%)", "QC-model estimate: 80% first-pass difficulty plus 20% rework difficulty inside Quality. Selected penalized models adjust for worker effects where supported. Provisional, not raw FPY."],
+        ["SKU sheet First Pass Yield (40%)", "Blended quality estimate: 80% Planner-anchored Rasch plus 20% old Rasch where Planner is available; 100% old Rasch otherwise. Within each model: 80% first-pass plus 20% rework. Provisional, not raw FPY."],
+        ["SKU sheet Part & Mechanism (25%)", f"Supplied source composite: {manifest['part_mechanism_source']['part_weight']:.0%} Part Score + {manifest['part_mechanism_source']['assembly_weight']:.0%} Assembly Structure Score + Mechanism Bonus, capped at 10. Missing assembly or bonus cells are zero in the source formula. Provisional, not approved final factor."],
         ["SKU sheet Material Design Process 20%", "Source workbook composite: 40% Material Score + 40% Design Score + 20% Process Score, all 0–10. Product type must match Item Master. Provisional fixed engineering input, not a fitted regression or approved final factor."],
         ["SKU sheet Stone 10%", "New Stone workbook's Final Semi Stone Score when an approved Stone factor is not yet available. Provisional source score."],
+        ["SKU sheet Learning 5%", "Provisional score from repeated same-worker, same-item first-round WO effort. L1, L2 and L3 rank the remaining actual/standard effort in the first, middle and last two WOs against eligible groups in the same process. Their average is the Learning score. Higher means effort stays high after repetition; blank without enough history."],
         ["SKU sheet Total Score10", "Available-factor score on 0–10: sum(score × weight) / sum(available weights). Blank if no factor is available. Partial or provisional when coverage is below 100% or factor validation is pending."],
         ["SKU sheet Contribute/10", "Unnormalized weighted sum of visible available factor estimates, including provisional Quality and Stone."],
         ["SKU sheet % contribute", "Sum of weights for visible available factor estimates, from 0% to 100%. This is completeness, not statistical confidence or approval."],
-        ["SKU sheet First Pass Yield Summary", "Observed first-round QC FPY, pass/inspected pieces and WO evidence count. It is diagnostic and does not bypass Quality approval."],
+        ["SKU sheet First Pass Yield Summary", "Observed first-round QC FPY, pass/inspected pieces, WO evidence count and numerical fit status. MODEL_SCORE_INCLUDED_IN_TOTAL means the provisional Quality score contributes to Total Score10; VALIDATION_PENDING means formal calibration is not complete. Detailed calibration status remains in Semi difficulty."],
         ["SKU sheet FPY 40% confident", "Conditional QC/Rasch precision belonging only to the displayed 40% Quality estimate. Blank if that factor or its matching precision is unavailable; does not inherit fixed-factor coverage."],
+        ["SKU sheet Learning 5% confident", "Conditional bootstrap precision belonging only to the displayed Learning 5% estimate: share of 200 resampled worker-item histories with a score within ±1 point. Blank if the Learning estimate or matching precision is unavailable. This is not production validation."],
         ["SKU sheet % confident overall", "Completeness-adjusted confidence index = available weight × lowest confidence of the model-estimated factors used. Fixed-only rows start at 100% before missing-weight reduction. Blank if any included model estimate lacks its own confidence. This is a heuristic index, not a calibrated probability that total Score10 is correct."],
         ["Semi scope status", "EXCLUDED_SEMI_SCOPE means the item starts with an excluded prefix or its Semi/BOM code ends -01 or -02. Such rows remain for reconciliation but have no factor, total score or confidence."],
         ["SKU confidence example", "Quality model confidence 60% plus Stone score gives 50% available weight, so FPY 40% confident stays 60% and overall confidence index is 60% × 50% = 30%."],
         ["Factor provenance", "One row per Semi and factor. Method distinguishes fitted estimates from source/rubric scores and missing factors. Confidence percent is populated only for a fitted factor with an explicit uncertainty calculation."],
-        ["Fixed versus estimated", "Quoted minutes, BOM/specification fields and approved rubric scores are fixed inputs for this run. QC Quality and worker/time effects are fitted estimates; their precision must be quantified independently."],
-        ["Learning model gate", "The 5% ramp-up factor has no fitted model in the current run. If estimated from time/effort trajectories, output a separate confidence percentage and interval before using it in the final Semi score."],
+        ["Fixed versus estimated", "Quoted minutes, BOM/specification fields and approved rubric scores are fixed inputs for this run. QC Quality, Learning and worker/time effects are fitted estimates; their precision must be quantified independently."],
+        ["Learning model gate", "The Learning 5% estimate is included provisionally where at least three same-worker, same-item histories from at least two workers each have six first-round WOs over at least 30 days. Source date is WO completion, not product introduction. Bootstrap precision and a 90% interval are conditional on observed histories; approved final factor remains blank."],
+        ["Learning effort ratio", "First-round actual worker hours / earned standard hours (GoodCW × StandardRuntime minutes / 60). Only completed, single-worker first rounds with positive inputs and ratio 0.1-10 are included; histories are compared within worker and exact item."],
+        ["LearningSourceScore", "Average of LearningL1, LearningL2 and LearningL3 on 0-10. Each is the within-process percentile rank of the group median effort ratio at that stage, scaled 0-10. Higher means the group still uses more time relative to standard after repetition. A flat, already-fast trajectory stays low; a flat, slow trajectory stays high."],
+        ["LearningConfidencePct", "Among 200 resamples of worker-item histories, fraction of Learning scores within ±1 point of the displayed score. Conditional diagnostic precision, not validated production reliability."],
         ["RaschInterval90Lower/Upper", "Conditional 90% interval for combined Quality estimate from the same local-information approximation. Excludes selection, worker-effect and model-specification uncertainty."],
         ["QualityFactor_Approved", "40% of final score: calibrated first-pass/FPY difficulty plus approved rework trajectory (80/20 inside Quality under the current specification). Both calibration gates must pass."],
         ["PartMechanismFactor_Approved", "25% of final score; rubric subitems P1, P2, P3. Direct SM_Casting and SM_ACJ PCS part count is evidence, not the approved score."],
+        ["PartMechanismSourceScore", "Part & Mechanism source score joined by Semi BOM. Evidence status identifies missing component detail; the value remains provisional."],
         ["MaterialDesignFactor_Approved", "20% of final score; rubric subitems M1, M2, M3. Material group count is evidence, not the approved score."],
         ["MaterialDesignSourceScore", "Material Design Process source composite from the new workbook, shown provisionally in SKU Score10. Blank when source or product-type match is missing."],
         ["StoneFactor_Approved", "10% of final score; rubric subitems S1, S2, S3. Requires approved rubric, scorer, approver and version."],
@@ -307,11 +352,12 @@ def build(destination: Path) -> Path:
         ["RaschConfidencePct", "Conditional QC-model precision for the 40% Quality factor only. Estimated from local first-pass and rework round information; excludes model-selection, worker-effect and specification uncertainty. Blank without a modeled Quality factor."],
         ["TicketSnapshotFPY", "FirstPassQty / (FirstPassQty + FirstFailQty) if denominator > 0. A ticket can be a cumulative snapshot; do not sum ticket quantities."],
         ["RoundFPY", "Matched first WO round PassQty / InspectedQty. Repeated for tickets in the same round; not independent observations."],
-        ["Rasch_Worker_Effect", "Diagnostic process/branch worker logit effect, not a ticket score or approved worker skill score."],
+        ["Rasch_Worker_Effect", "Process/branch worker logit effect. User acceptance is recorded by CalibrationStatus and DecisionEligibility in Rasch workers; statistical calibration is tracked separately. This is not a ticket-level score."],
         ["WorkerAttributionStatus", "Production worker attribution from core WO-round join. Team results are not split into individual successes."],
         ["QCWorkerWrkCtrId", "QC inspector from source ticket, distinct from attributed production Worker."],
         ["Stone provenance", "input_data/06_Engineering_Factors/Stone/Semi Stone Score.xlsx; join on BOM item number."],
         ["Material Design provenance", "input_data/06_Engineering_Factors/Material Design Process/Material Design Process Score.xlsx; join on Semi BOM Item, Semi Item and Process; select duplicate context by Item Master Product Type."],
+        ["Part & Mechanism provenance", f"input_data/06_Engineering_Factors/Part Quantity, Mechanism/Part & Mechanism Score.xlsx; join on Semi BOM. Source formula {manifest['part_mechanism_source']['part_weight']:g} Part + {manifest['part_mechanism_source']['assembly_weight']:g} Assembly + Bonus, capped at 10."],
         ["QC provenance", "input_data/04_QC_Tickets/QC data.xlsx; join to completed core run on WO + RoundNo."],
         ["Core provenance", "Do kho SKU.csv, QC rounds.csv, QC round workers.csv, Rasch first pass workers.csv, Rasch rework workers.csv."],
         ["Quoted time input", "Current input_data/08_Quoted Hours/Quoted Hours.xlsx has Minutes per Semi, keyed by BOM number. Conflicting and nonpositive quotes remain auditable and are not used for calibration."],

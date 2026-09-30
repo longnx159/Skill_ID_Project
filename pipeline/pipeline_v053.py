@@ -139,6 +139,19 @@ def load_inputs(config, template=None):
     for dataset, paths in discovered.items():
         if paths:
             sources[dataset] = read_dataset_files(paths, dataset)
+            if dataset == "Production":
+                status_frames = []
+                for path in paths:
+                    if path.suffix.lower() not in {".xlsx", ".xls"}:
+                        continue
+                    with pd.ExcelFile(path) as workbook:
+                        if "WorkOrderData" in workbook.sheet_names:
+                            status = pd.read_excel(workbook, sheet_name="WorkOrderData",
+                                usecols=["ProductionOrderNumber", "Status"], dtype={"ProductionOrderNumber": "string"})
+                            status["SourceFile"] = path.name
+                            status_frames.append(status)
+                if status_frames:
+                    sources["Work Order Status"] = pd.concat(status_frames, ignore_index=True)
     return sources
 
 
@@ -398,6 +411,21 @@ def run_pipeline(config, template=None):
         session.start_stage("Production validation")
         result = _compute_pipeline(config, inputs, session)
         session.finish_stage()
+        if config.planner_quality_enabled:
+            from .planner_quality import run_comparison
+            qc_rounds = result["tables"].get("QC rounds", pd.DataFrame())
+            if "WO" in qc_rounds and not qc_rounds.empty:
+                planner_tables, planner_metadata = session.call("Planner QC parallel comparison", run_comparison,
+                    qc_rounds, result["data"], inputs["Planner Skills"], session.staging, session.summary["sources"],
+                    draws=config.planner_quality_draws, tune=config.planner_quality_tune,
+                    chains=config.planner_quality_chains, seed=config.random_seed,
+                    compile_mode=config.planner_quality_compile_mode)
+                result["tables"].update(planner_tables)
+                result["manifest"]["planner_quality"] = planner_metadata
+                session.summary["planner_quality"] = planner_metadata
+                session.logger.warning("Planner QC challengers are exported separately; inspect per-branch statistical acceptance before use")
+            else:
+                session.summary["planner_quality"] = {"status": "SKIPPED_NO_QC_DATA", "decision": "KEEP_RASCH"}
         session.collect(result)
         from .run_reporting import file_hash
         current_code = {p.name: file_hash(p) for p in Path(__file__).parent.glob("*.py")}
@@ -428,6 +456,19 @@ def run_pipeline(config, template=None):
 
 def _compute_pipeline(config, inputs, session):
     raw = inputs.get("Production", pd.DataFrame())
+    order_status = inputs.get("Work Order Status", pd.DataFrame())
+    excluded_orders = set()
+    status_audit = pd.DataFrame()
+    if not order_status.empty:
+        status_audit = order_status.copy()
+        status_audit["ProductionOrderNumber"] = status_audit["ProductionOrderNumber"].astype("string").str.strip()
+        status_audit["Status"] = status_audit["Status"].astype("string").str.strip()
+        if status_audit["ProductionOrderNumber"].duplicated().any():
+            raise ValueError("WorkOrderData contains duplicate ProductionOrderNumber keys")
+        excluded_orders = set(status_audit.loc[~status_audit.Status.str.casefold().eq("complete").fillna(False), "ProductionOrderNumber"].dropna())
+        status_audit["AnalysisStatus"] = np.where(status_audit.ProductionOrderNumber.isin(excluded_orders),
+            "EXCLUDED_NOT_COMPLETE", "ELIGIBLE_COMPLETE")
+        raw = raw.loc[~raw["Reference"].astype("string").str.strip().isin(excluded_orders)].copy() if "Reference" in raw else raw.loc[~raw["ProductionOrderNumber"].astype("string").str.strip().isin(excluded_orders)].copy()
     raw = enrich_production_from_master(raw,
         inputs.get("Reference Master", pd.DataFrame()),
         inputs.get("Item Master", pd.DataFrame()),
@@ -476,7 +517,8 @@ def _compute_pipeline(config, inputs, session):
                 if pd.notna(qc_latest) and (pd.isna(cutoff) or qc_latest > cutoff):
                     cutoff = qc_latest
     quality = []
-    quality.append({"Check":"Production input rows", "N":len(raw), "Status":"Observed"})
+    quality.append({"Check":"Production input rows", "N":len(raw), "Status":"Complete work orders only" if excluded_orders else "Observed"})
+    quality.append({"Check":"Work orders excluded: not complete", "N":len(excluded_orders), "Status":"Excluded before production and QC modeling"})
     quality.append({"Check":"Production retained after basic filters", "N":len(data), "Status":"Observed; latest month retained unless explicitly excluded"})
     # RoundNo is part of the production grain. A worker can legitimately have
     # separate entries for the same WO/item across first pass and rework.
@@ -499,7 +541,11 @@ def _compute_pipeline(config, inputs, session):
     item_output["Final Technical Complexity"] = np.nan
     item_output["Quality Status"] = "Insufficient Evidence: QC not supplied"
     tables = {"Input join exceptions": raw.loc[raw["WOJoinStatus"].ne("both")].copy()} if "WOJoinStatus" in raw else {}
+    if not status_audit.empty:
+        tables["Work order status audit"] = status_audit
     qc = inputs.get("QC Tickets", pd.DataFrame())
+    if excluded_orders and not qc.empty:
+        qc = qc.loc[~qc["WO"].astype("string").str.strip().isin(excluded_orders)].copy()
     rounds = pd.DataFrame()
     if not qc.empty:
         rounds, first, qc_exceptions = session.call("QC reconstruction", reconstruct_qc, qc, mapping, cutoff, exclude_month=config.qc_exclude_month)
@@ -592,6 +638,8 @@ def _compute_pipeline(config, inputs, session):
     session.start_stage("Touch and engineering checks")
     touch = inputs.get("Touch Events", pd.DataFrame())
     if not touch.empty:
+        if excluded_orders:
+            touch = touch.loc[~touch["WO"].astype("string").str.strip().isin(excluded_orders)].copy()
         if config.source_cutoff:
             touch = touch[pd.to_datetime(touch.Worker_Stop,errors="coerce").le(cutoff)]
         tables["Touch reconstruction"] = reconstruct_touch(touch, rounds)

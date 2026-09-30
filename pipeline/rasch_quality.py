@@ -97,7 +97,9 @@ def fit_rasch_quality(first_round, production_data, max_iter=1000, tol=1e-5):
         mu = np.log(observed_fpy / max(1 - observed_fpy, 1e-8))
         u = np.zeros(n_workers)  # worker effects
         v = np.zeros(n_groups)   # group effects (difficulty = -v)
-        r = np.zeros(len(round_values))  # round effect; retained separate from item difficulty
+        # The earliest eligible round is the reference level. Estimating its
+        # effect as well as the intercept makes the first-pass fit redundant.
+        r = np.zeros(len(round_values))
         tau2_w = 0.5  # worker variance
         tau2_g = 0.5  # group variance
 
@@ -137,6 +139,7 @@ def fit_rasch_quality(first_round, production_data, max_iter=1000, tol=1e-5):
             np.add.at(num_r, ri, resid_r)
             np.add.at(den_r, ri, wt)
             r_new = num_r / (den_r + 1.0)
+            r_new[0] = 0.0
 
             # Update variance components
             tau2_w_new = max(float(np.mean(u_new ** 2)), 1e-8)

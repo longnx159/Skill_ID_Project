@@ -1,7 +1,8 @@
 """Export one auditable diagnostic row per SemiBOM from BOM and core run data.
 
 The command never manufactures a final score from a nonconverged or unapproved
-model. It includes excluded SemiBOMs with an explicit blocked status.
+model. BOM source warnings remain visible without suppressing independent
+worker, QC, and engineering-factor evidence.
 """
 from __future__ import annotations
 
@@ -86,6 +87,12 @@ def build_item_rows(features: pd.DataFrame, inputs: pd.DataFrame, model: pd.Data
         "Source Cutoff": "ModelSourceCutoff",
     })
     report = report.merge(model_detail, left_on="SemiItem", right_on="Item Number", how="left", validate="many_to_one")
+    # A flagged BOM can still identify a Semi item and its production process.
+    # Fill only a missing process from the exact Item Master/model identity;
+    # leave BOM-derived counts unavailable in the separate BOM columns.
+    bom_review = report.BOMStatus.ne("BOM structure usable")
+    fill_process = bom_review & report.Process.isna() & report.ModelProcess.notna()
+    report.loc[fill_process, "Process"] = report.loc[fill_process, "ModelProcess"]
     if item_master is not None:
         _require(item_master, {"Item Number", "Product Type"}, Path("Item_Master.xlsx"))
         item_master = item_master.copy()
@@ -103,19 +110,10 @@ def build_item_rows(features: pd.DataFrame, inputs: pd.DataFrame, model: pd.Data
     report["ModelLinkStatus"] = "MATCHED"
     report.loc[~has_model, "ModelLinkStatus"] = "NO_MODEL_ITEM"
     report.loc[has_model & ~process_match, "ModelLinkStatus"] = "PROCESS_MISMATCH"
-    blocked_bom = report.BOMStatus.ne("BOM structure usable")
-    # A blocked BOM still has an item identity. Show its mapped process for
-    # reconciliation, while keeping all model evidence and scores blocked.
-    blocked_process = blocked_bom & report.Process.isna() & report.ModelProcess.notna()
-    report.loc[blocked_process, "Process"] = report.loc[blocked_process, "ModelProcess"]
-    for column in model_detail.columns.difference(["Item Number"]):
-        report.loc[blocked_bom, column] = pd.NA
-    report.loc[blocked_bom, "ModelLinkStatus"] = "NOT_EVALUATED_BOM_BLOCKED"
     report["ReportStatus"] = "DIAGNOSTIC_ONLY"
     report.loc[~has_model, "ReportStatus"] = "NO_MODEL_ITEM"
     report.loc[has_model & ~process_match, "ReportStatus"] = "PROCESS_MISMATCH"
     report.loc[report.Process.eq("Unmapped"), "ReportStatus"] = "ITEM_MASTER_UNMAPPED"
-    report.loc[blocked_bom, "ReportStatus"] = "BOM_BLOCKED"
     excluded_scope = excluded_semi_mask(report.SemiItem, report.SemiBOM)
     report["SemiScopeStatus"] = "IN_SCOPE"
     report.loc[excluded_scope, "SemiScopeStatus"] = EXCLUDED_STATUS
@@ -205,12 +203,12 @@ def run(semi_dir: Path, core_run: Path | None, output_root: Path, core_root: Pat
     }
     atomic_json(destination / "semi_item_report_summary.json", summary)
     lines = ["# Semi item report", "", f"Core run: `{core_summary['run_id']}`. Report run: `{run_id}`.", "",
-             f"The CSV contains **{len(report):,} unique SemiBOMs**, one row each, including BOM-blocked items.", "",
+             f"The CSV contains **{len(report):,} unique SemiBOMs**, one row each, including items with BOM source warnings.", "",
              "| Status | SemiBOMs |", "|---|---:|"]
     lines += [f"| {status} | {count:,} |" for status, count in status_counts.items()]
     lines += ["", "Codes with listed prefixes or ending -01/-02 in the Semi or BOM identifier are kept for reconciliation but excluded from Semi scoring. The suffixes indicate likely outsourced items under the current business rule, not verified supplier status.", "",
               "`FinalTechnicalComplexity` is populated only when the core model explicitly marks an item approved and first-pass eligible. Blank means no approved score; it is not zero. Time and QC values, where present, are diagnostics.", "",
-              "`MechanicalAssemblyPartCountPCS` counts only direct SM_Casting and SM_ACJ rows in PCS in a valid BOM context. Flagged BOMs retain an explicit blocked status and no complexity inputs.", "",
+              "`MechanicalAssemblyPartCountPCS` counts only direct SM_Casting and SM_ACJ rows in PCS in a valid BOM context. Flagged BOMs retain a BOMStatus warning and no BOM-derived complexity inputs; independent worker, QC and engineering-factor evidence can still be used.", "",
               "Source snapshots and SHA-256 hashes are stored in this run. The item-level source is `semi_item_report.csv`; `semi_item_report_summary.json` gives counts and checks.", ""]
     if not engineering_in_core:
         lines += ["Engineering factors were absent from the selected core run; no factor-based final technical complexity can be published from it.", ""]

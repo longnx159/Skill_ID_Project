@@ -41,7 +41,16 @@ PENALTIES = (0.1, 1.0, 10.0)
 
 
 def prepare(inputs, qc_exclude_month="2026-07"):
-    raw = enrich_production_from_master(inputs["Production"], inputs.get("Reference Master"),
+    status = inputs.get("Work Order Status", pd.DataFrame())
+    excluded_orders = set()
+    if not status.empty:
+        excluded_orders = set(status.loc[~status["Status"].astype("string").str.strip().str.casefold().eq("complete").fillna(False),
+                                         "ProductionOrderNumber"].astype("string").str.strip().dropna())
+    raw_source = inputs["Production"]
+    if excluded_orders:
+        key = "Reference" if "Reference" in raw_source else "ProductionOrderNumber"
+        raw_source = raw_source.loc[~raw_source[key].astype("string").str.strip().isin(excluded_orders)].copy()
+    raw = enrich_production_from_master(raw_source, inputs.get("Reference Master"),
                                        inputs.get("Item Master"), inputs.get("Worker Master"))
     source = inputs.get("Item Master", pd.DataFrame())
     if source.empty:
@@ -55,7 +64,10 @@ def prepare(inputs, qc_exclude_month="2026-07"):
     valid = (~production.duplicated(keys, keep=False) & production.Process.notna()
              & ~production.Process.isin(["", "Unknown"]))
     production = production.loc[valid].copy()
-    rounds, _, exceptions = reconstruct_qc(inputs["QC Tickets"], mapping, exclude_month=qc_exclude_month)
+    qc_source = inputs["QC Tickets"]
+    if excluded_orders:
+        qc_source = qc_source.loc[~qc_source["WO"].astype("string").str.strip().isin(excluded_orders)].copy()
+    rounds, _, exceptions = reconstruct_qc(qc_source, mapping, exclude_month=qc_exclude_month)
     if rounds.empty:
         raise ValueError("No eligible QC rounds")
     p = production.loc[production.RoundNo.ge(1) & production.RoundNo.mod(1).eq(0)].copy()
